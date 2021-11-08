@@ -20,6 +20,7 @@ endif()
 
 ADD_DEFINITIONS (-DSTDOUT_SILENT)
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+ADD_DEFINITIONS(-std=gnu++17)
 
 MESSAGE(NOTICE "--> Libraw version ${LibRaw_VERSION_STRING} ${LibRaw_LIBRARIES} ${LibRaw_DEFINITIONS}")
 MESSAGE(NOTICE "OpenMP CXX FLAGS : ${OpenMP_CXX_FLAGS}")
@@ -28,6 +29,7 @@ MESSAGE(NOTICE "OpenMP C FLAGS : ${OpenMP_C_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
 MESSAGE(NOTICE "LENSFUN CONFIG : ${LensFun_LIBRARIES} ${LensFun_INCLUDE_DIRS}")
 
 ADD_SUBDIRECTORY(imgui-lib)
+ADD_SUBDIRECTORY(imgui_extra-lib)
 ADD_SUBDIRECTORY(raw-lib)
 ADD_SUBDIRECTORY(scope-lib)
 ADD_SUBDIRECTORY(processing-lib)
@@ -36,6 +38,6 @@ ADD_SUBDIRECTORY(utils)
 SET(EXT_LIBS usb-1.0 GL GLEW pthread ${SDL2_LIBRARIES} ${LibRaw_LIBRARIES} ${OPENCOLORIO_LIBRARIES} ${LensFun_LIBRARIES} )
 
 ADD_EXECUTABLE(chrawma.bin main.cpp)
-TARGET_LINK_LIBRARIES(chrawma.bin imgui_static scopes_static utils_static processing_static rawlib_static mlvlib_static ${EXT_LIBS})
+TARGET_LINK_LIBRARIES(chrawma.bin imgui_extra_static imgui_static scopes_static utils_static processing_static rawlib_static mlvlib_static ${EXT_LIBS})
 
 INSTALL(TARGETS chrawma.bin RUNTIME DESTINATION bin)

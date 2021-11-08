@@ -4,7 +4,6 @@
 
 #include "glsl_shader.h"
 #include <GL/glew.h>
-#include <SDL_opengl.h>
 
 #include <iostream>
 #include <fstream>

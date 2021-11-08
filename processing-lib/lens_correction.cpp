@@ -1,7 +1,7 @@
 #include "lens_correction.h"
 #include <lensfun/lensfun.h>
 
-#include <GL/glew.h>
+#include "texture2D.h"
 #include "../utils/glsl_shader.h"
 
 const char* compute_distort_shader = "#version 440\n"
@@ -48,7 +48,9 @@ static lfdb _lfdb;
 struct Lens_correction::lens_corr_impl {
 	render::Shader shader_distort;
 	render::Shader shader_copy;
-	GLuint uv_tex, out_tex, expo_tex;
+	TextureRG16F uv_tex;
+	TextureR16F expo_tex;
+	TextureRGBA16F out_tex;
 };
 
 Lens_correction::Lens_correction(const std::string camera, const std::string lens,
@@ -60,7 +62,6 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 
 	_uv_distortion_table = NULL;
 	_expo_table = NULL;
-	_imp->uv_tex = _imp->out_tex = _imp->expo_tex = 0;
 
 	const lfCamera *lfcam = NULL;
 	const lfLens *lflens = NULL;
@@ -94,32 +95,9 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 	_imp->shader_distort.init_from_string(shader);
 	_imp->shader_copy.init_from_string(shader_copy);
 
-	glGenTextures(1, &_imp->expo_tex);
-	glBindTexture(GL_TEXTURE_2D, _imp->expo_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, _width, _height, 0, GL_RED, GL_FLOAT, _expo_table);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glGenTextures(1, &_imp->uv_tex);
-	glBindTexture(GL_TEXTURE_2D, _imp->uv_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RG16F, _width, _height, 0, GL_RG, GL_FLOAT, _uv_distortion_table);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	glGenTextures(1, &_imp->out_tex);
-	glBindTexture(GL_TEXTURE_2D, _imp->out_tex);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _width, _height, 0, GL_RGBA, GL_FLOAT, NULL);
-	glBindTexture(GL_TEXTURE_2D, 0);
+	_imp->expo_tex.init(GL_RED, GL_FLOAT,  _width,  _height,  _expo_table);
+	_imp->uv_tex.init(GL_RG, GL_FLOAT,  _width,  _height,  _uv_distortion_table);
+	_imp->out_tex.init(GL_RGBA, GL_FLOAT,  _width,  _height);
 
 	delete mod;
 	delete[] _uv_distortion_table;
@@ -128,16 +106,15 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 
 Lens_correction::~Lens_correction()
 {
-	glDeleteTextures(1, &_imp->uv_tex);
-	glDeleteTextures(1, &_imp->out_tex);
 	delete _imp;
 }
 
 void Lens_correction::apply_correction(unsigned int tex)
 {
+
 	_imp->shader_distort.bind();
-	glBindImageTexture(0, _imp->out_tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-	glBindImageTexture(1, _imp->uv_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
+	glBindImageTexture(0, _imp->out_tex.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+	glBindImageTexture(1, _imp->uv_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, tex);
 	glDispatchCompute(_width / 16 + 1, _height / 16 + 1, 1);
@@ -146,8 +123,8 @@ void Lens_correction::apply_correction(unsigned int tex)
 
 	_imp->shader_copy.bind();
 	glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-	glBindImageTexture(1, _imp->out_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
-	glBindImageTexture(2, _imp->expo_tex, 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16F);
+	glBindImageTexture(1, _imp->out_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
+	glBindImageTexture(2, _imp->expo_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16F);
 	glDispatchCompute(_width / 16 + 1, _height / 16 + 1, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_imp->shader_copy.unbind();
