@@ -1,6 +1,6 @@
+#include "graph_editor.h"
 #include "imgui_window_sdl.h"
 #include "imfilebrowser.h"
-#include "graph_editor.h"
 #include "thread.h"
 #include "timer.h"
 #include <GL/glew.h>
@@ -11,6 +11,7 @@
 #include "scope-lib/waveform_monitor.h"
 #include "processing-lib/lens_correction.h"
 #include "raw-lib/libmlv.h"
+#include "dng_convert.h"
 
 #include "texture2D.h"
 
@@ -195,16 +196,20 @@ public:
 		set_size(500,500);
 		//set_resizable(false);
 		set_titlebar(false);
-
+		Dng_processor proc;
+		uint16_t *frame = proc.get_aces_from_file("/storage/VIDEO/MISC/RAW/VIDEO_DNG/M22-1534/M22-1534_000013.dng");
+		proc.idt(_idt_mat);
 		uint32_t size;
-		uint16_t *frame = _video.get_raw_processed_buffer(_cf++, _idt_mat);
-		int w = _video.resolution_x();
-		int h = _video.resolution_y();
+		//uint16_t *frame = _video.get_raw_processed_buffer(_cf++, _idt_mat);
+//		int w = _video.resolution_x();
+//		int h = _video.resolution_y();
+		int w = proc.width();
+		int h = proc.height();
 
-		_tex = new TextureRGBA16F(GL_RGB, GL_UNSIGNED_SHORT, _video.resolution_x(), _video.resolution_y(), frame);
+		_tex = new TextureRGBA16F(GL_RGB, GL_UNSIGNED_SHORT, w, h, frame);
 
 		_lc = new Lens_correction(_video.get_camera_name(), _video.get_lens_name(),
-						   _video.resolution_x(), _video.resolution_y(),
+						   w, h,
 						   _video.get_aperture(), _video.get_focal_dist(),
 						   _video.get_focal_length());
 
@@ -212,8 +217,10 @@ public:
 
 		_lc->apply_correction(_tex->get_gltex());
 
-		_aces_proc2.process(_tex->get_gltex(), _video.resolution_x(), _video.resolution_y(), _idt_mat);
-		_aces_proc.process(_tex->get_gltex(), _video.resolution_x(), _video.resolution_y());
+		//for(int i = 0;i<9;++i) _idt_mat[i] *= 4.5f;
+
+		_aces_proc2.process(_tex->get_gltex(), w, h, _idt_mat);
+		_aces_proc.process(_tex->get_gltex(), w, h);
 
 	}
 
@@ -224,8 +231,11 @@ public:
 
 		ImGui::SetNextItemWidth(1000);
 		ImGui::BeginGroup();
+		ImVec2 winsize = ImGui::GetWindowSize();
+		float ratio = 9.0/16.0;
+		//ImGui::SetCursorPos(ImVec2(-500,-500));
 		bool open = ImGui::Button("Test", ImVec2(100,20));
-		ImGui::Image((void*)(unsigned long)_tex->get_gltex(), ImVec2(1000,600));
+		ImGui::Image((void*)(unsigned long)_tex->get_gltex(), ImVec2(winsize.x,int((float)winsize.x*ratio)));
 		ImGui::EndGroup();
 		// Same name for openpopup and showFileDialog....
 		if(open)ImGui::OpenPopup("Open File");
@@ -250,6 +260,8 @@ public:
 
         ImGui::End();
 
+        ImPlot::ShowDemoWindow(NULL);
+
         //ImPlot::ShowDemoWindow();
 	}
 };
@@ -263,11 +275,11 @@ int main(int, char**)
 	setenv("OCIO", ocio_path.c_str(), 1);
 	setenv("PIXELMAPSDIR", fpm_path.c_str(), 1);
 	Window_SDL* window2 = app->create_new_window("OSC", 1200, 1000);
-	window2->set_monitor_lut("/home/cedric/Documents/ACES-OCIO/luts/Z27_sRGB.cube");
+	//window2->set_monitor_lut("/home/cedric/Documents/ACES-OCIO/luts/Z27_sRGB.cube");
 	window2->set_minimum_window_size(800,600);
 	TestWidget* testwid = new TestWidget(window2);
-	ImFont* font = app->load_font("/home/cedric/Documents/FONTS/DroidSans.ttf", 16.f);
-	ImFont* font2 = app->load_font("/home/cedric/Documents/FONTS/DroidSans-Bold.ttf", 16.f);
+	ImFont* font = app->load_font("/home/cedric/Documents/FONTS/DroidSans.ttf", 14.f);
+	//ImFont* font2 = app->load_font("/home/cedric/Documents/FONTS/DroidSans-Bold.ttf", 16.f);
 	//Window_SDL* window = app->create_new_window("demo", 900, 1000);
 	app->run();
     return 0;

@@ -29,6 +29,8 @@
 #include <stdint.h>
 #include <string>
 #include "imgui.h"
+#define IMGUI_DEFINE_MATH_OPERATORS
+
 #include "imgui_internal.h"
 
 namespace GraphEditor {
@@ -116,6 +118,7 @@ struct Link
 
 struct Delegate
 {
+	virtual ~Delegate(){}
     virtual bool AllowedLink(NodeIndex from, NodeIndex to) = 0;
 
     virtual void SelectNode(NodeIndex nodeIndex, bool selected) = 0;

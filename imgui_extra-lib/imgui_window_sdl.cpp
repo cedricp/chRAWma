@@ -348,6 +348,7 @@ void Widget::draw_widget()
 			_sizey = h;
 			flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize;
 		}
+
 		if(ImGui::Begin(_name.c_str(), &_is_open, flags)){
 			draw();
 		}
@@ -578,7 +579,7 @@ void App_SDL::run()
         // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
         SDL_Event event;
-        bool event_raised = false;
+        int event_raised = 0;
 
         while (SDL_PollEvent(&event))
         {
@@ -587,7 +588,7 @@ void App_SDL::run()
         		if (window->do_event(&event)){
         			window->draw();
         		}
-        		event_raised = true;
+        		event_raised = 2;
         	}
 
             // Events handler
@@ -598,7 +599,7 @@ void App_SDL::run()
         		if (event.type == (*it)->get_evt_idx()){
         			event_flag |= true;
         			(*it)->on_callback(event.user.data1, event.user.data2);
-        			event_raised = true;
+        			event_raised = 2;
         		}
         	}
 
@@ -606,7 +607,7 @@ void App_SDL::run()
                 done = true;
             }
         }
-        if (event_raised){
+        while (event_raised--){
 			for(auto window: _impl->_windows){
 				window->draw();
 			}

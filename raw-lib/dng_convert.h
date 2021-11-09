@@ -1,22 +1,27 @@
 #pragma once
 #include "mlv-lib/video_mlv.h"
+#include <string>
 
-class Dng_converter
+class Dng_processor
 {
 public:
 	struct Idt{
 		float matrix[9];
 	};
-	Dng_converter(mlvObject_t* mlv_object);
-	~Dng_converter();
+	Dng_processor();
+	~Dng_processor();
 
-	uint16_t* get_buffer(uint32_t frame);
+	uint16_t* get_aces(uint8_t* buffer, size_t buffersize);
+	uint16_t* get_aces_from_file(std::string dng_filename);
 	Idt get_idt_matrix();
-	uint8_t* get_dng_buffer(uint32_t frame, uint32_t& size);
 	void free_buffer();
+	int width(){return _w;}
+	int height(){return _h;}
+	void idt(float idt[9]){for(int i = 0; i < 9; ++i){idt[i] = _idt.matrix[i];} }
 private:
 	struct dngc_impl;
 	dngc_impl* _imp;
 	unsigned short *_buffer;
 	Idt _idt;
+	int _w, _h;
 };

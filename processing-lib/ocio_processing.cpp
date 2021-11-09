@@ -2,7 +2,7 @@
 
 #include <OpenColorIO/OpenColorIO.h>
 #include <GL/glew.h>
-#include "../utils/glsl_shader.h"
+#include "glsl_shader.h"
 
 const char* compute_aces_shader = "#version 440\n"
 "layout (binding=0, rgba16f) uniform coherent image2D input_buffer;\n"
@@ -13,7 +13,8 @@ const char* compute_aces_shader = "#version 440\n"
 "vec4 OCIODisplay(in vec4 inPixel, const sampler3D lut3d);\n"
 "void main(){\n"
 "ivec2 loadPos = ivec2(gl_GlobalInvocationID.xy);\n"
-"vec4 col = imageLoad(input_buffer, loadPos);col.xyz = col.xyz * color_mat;\n"
+"vec4 col = imageLoad(input_buffer, loadPos);\n"
+"col.xyz = col.xyz * color_mat;\n"
 "col = OCIODisplay(col, aces_lut);\n"
 "imageStore(input_buffer, loadPos, col);\n"
 "}\n"
@@ -24,17 +25,14 @@ struct ocio_impl{
 	unsigned int _lut_texture;
 };
 
+using namespace OCIO_NAMESPACE::OCIO_VERSION_NS;
+
 OCIO_processing::OCIO_processing(std::string colorspace_in, std::string colorspace_out)
 {
 	_imp = new ocio_impl;
-	using namespace OCIO_NAMESPACE::OCIO_VERSION_NS;
-	const int LUT3D_EDGE_SIZE = 32;
+	const int LUT3D_EDGE_SIZE = 33;
 	ConstConfigRcPtr config = GetCurrentConfig();
-//	const char * device = config->getDefaultDisplay();
-//	const char * transformName = config->getDefaultView(device);
-//	const char * displayColorSpace = config->getDisplayColorSpaceName(device, transformName);
 	ConstProcessorRcPtr processor = config->getProcessor(colorspace_in.c_str(), colorspace_out.c_str());
-
 
 	GpuShaderDesc shaderDesc;
 	shaderDesc.setLanguage(GPU_LANGUAGE_GLSL_1_3);
@@ -68,6 +66,17 @@ OCIO_processing::OCIO_processing(std::string colorspace_in, std::string colorspa
 OCIO_processing::~OCIO_processing()
 {
 	delete _imp;
+}
+
+std::vector<std::string> OCIO_processing::get_displays()
+{
+	std::vector<std::string> displays;
+	ConstConfigRcPtr config = GetCurrentConfig();
+	int num_displays = config->getNumDisplays();
+	for (int i=0; i < num_displays; ++i){
+		displays.push_back(config->getDisplay(i));
+	}
+	return displays;
 }
 
 void OCIO_processing::process(unsigned int tex, int w, int h, float* pre_color_matrix)

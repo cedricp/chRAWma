@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 struct ocio_impl;
 
@@ -11,4 +12,6 @@ public:
 	~OCIO_processing();
 
 	void process(unsigned int tex, int w, int h, float* pre_color_matrix = 0L);
+
+	static std::vector<std::string> get_displays();
 };

@@ -48,9 +48,9 @@ static lfdb _lfdb;
 struct Lens_correction::lens_corr_impl {
 	render::Shader shader_distort;
 	render::Shader shader_copy;
+	TextureRGBA16F out_tex;
 	TextureRG16F uv_tex;
 	TextureR16F expo_tex;
-	TextureRGBA16F out_tex;
 };
 
 Lens_correction::Lens_correction(const std::string camera, const std::string lens,

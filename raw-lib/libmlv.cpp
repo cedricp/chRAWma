@@ -13,7 +13,8 @@ extern "C"{
 struct mlv_imp
 {
 	mlvObject_t* mlv_object;
-	Dng_converter *dngc;
+	Dng_processor *dngc;
+	dngObject_t* dng_object;
 };
 
 std::string get_map_name(mlvObject_t* mvl_object)
@@ -31,7 +32,12 @@ Mlv_video::Mlv_video(std::string filename)
 	char err_mess[512];
 
 	_imp->mlv_object = initMlvObjectWithClip(filename.c_str(), MLV_OPEN_FULL, &err, err_mess);
-	_imp->dngc = new Dng_converter(_imp->mlv_object);
+
+
+	int par[4] = {1,1,1,1};
+	_imp->dng_object = initDngObject(_imp->mlv_object, UNCOMPRESSED_RAW, getMlvFramerateOrig(_imp->mlv_object), par);
+
+	_imp->dngc = new Dng_processor;
 
 	if (err){
 		std::cout << "MLV open problem : " << err_mess << std::endl;
@@ -46,10 +52,6 @@ Mlv_video::Mlv_video(std::string filename)
     if( focusDetect != 0 ){
 		llrpSetFocusPixelMode(_imp->mlv_object, focusDetect);
     }
-    std::cout << "Camera " << get_camera_name() << " Lens " << get_lens_name() <<
-    		" - " << _imp->mlv_object->LENS.lensID <<  " " << _imp->mlv_object->RAWC.sensor_crop <<
-			 " " << resolution_x() << " " << resolution_y() << std::endl;
-
 }
 
 Mlv_video::~Mlv_video()
@@ -109,9 +111,11 @@ void Mlv_video::free_buffer()
 
 unsigned short* Mlv_video::get_raw_processed_buffer(uint32_t frame, float idt_matrix[9])
 {
+	uint8_t *buffer = getDngFrameBuffer(_imp->mlv_object, _imp->dng_object, frame);
+	size_t size = _imp->dng_object->image_size + _imp->dng_object->header_size;
 
-	uint16_t* rawbuffer = _imp->dngc->get_buffer(frame);
-	Dng_converter::Idt idt = _imp->dngc->get_idt_matrix();
+	uint16_t* rawbuffer = _imp->dngc->get_aces(buffer, size);
+	Dng_processor::Idt idt = _imp->dngc->get_idt_matrix();
 	memcpy((void*)idt_matrix, (void*)idt.matrix, 9*sizeof(float));
 	return rawbuffer;
 }

@@ -1,29 +1,22 @@
 #include "dng_convert.h"
 #include "idt/dng_idt.h"
-extern "C"{
-#include "mlv-lib/dng/dng.h"
-}
 #include <libraw/libraw.h>
+#include <sys/stat.h>
 
-struct Dng_converter::dngc_impl{
+struct Dng_processor::dngc_impl{
 	LibRaw* libraw;
-	dngObject_t* dng_object;
-	mlvObject_t* mlv_object;
 	libraw_processed_image_t* image;
 };
 
-Dng_converter::Dng_converter(mlvObject_t* mlv_object) : _buffer(NULL)
+Dng_processor::Dng_processor() : _buffer(NULL)
 {
 	_imp = new dngc_impl;
 	_imp->libraw = new LibRaw;
-	_imp->mlv_object = mlv_object;
 	_imp->image = NULL;
-
-	int par[4] = {1,1,1,1};
-	_imp->dng_object = initDngObject(mlv_object, UNCOMPRESSED_RAW, getMlvFramerateOrig(mlv_object), par);
+	_w = _h = 0;
 }
 
-Dng_converter::~Dng_converter()
+Dng_processor::~Dng_processor()
 {
 	if (_imp->image){
 		free(_imp->image);
@@ -33,7 +26,7 @@ Dng_converter::~Dng_converter()
 	delete _imp;
 }
 
-void Dng_converter::free_buffer()
+void Dng_processor::free_buffer()
 {
 	if (_imp->image){
 		free(_imp->image);
@@ -41,7 +34,34 @@ void Dng_converter::free_buffer()
 	}
 }
 
-uint16_t* Dng_converter::get_buffer(uint32_t frame)
+uint16_t* Dng_processor::get_aces_from_file(std::string dng_filename)
+{
+	FILE* file = fopen(dng_filename.c_str(), "rb");
+	if (!file){
+		printf("Dng_processor : Cannot open file %s\n", dng_filename.c_str());
+		return NULL;
+	}
+
+	struct stat sb;
+	if (stat(dng_filename.c_str(), &sb) == -1) {
+		printf("Dng_processor : Cannot open file (stat) %s\n", dng_filename.c_str());
+		return NULL;
+	}
+
+	size_t file_size =  sb.st_size;
+
+	uint8_t* dng_memory = (uint8_t*)malloc(file_size);
+	fread(dng_memory, file_size, 1, file);
+
+	fclose(file);
+
+	uint16_t* result = get_aces(dng_memory, file_size);
+	free(dng_memory);
+
+	return result;
+}
+
+uint16_t* Dng_processor::get_aces(uint8_t* buffer, size_t buffersize)
 {
 	if (_imp->image){
 		free(_imp->image);
@@ -75,8 +95,7 @@ uint16_t* Dng_converter::get_buffer(uint32_t frame)
 	_imp->libraw->imgdata.params.no_interpolation=0;
 
 	uint32_t size = 0;
-	uint8_t* dng_buffer = get_dng_buffer(frame, size);
-	int obret = _imp->libraw->open_buffer(dng_buffer, size);
+	int obret = _imp->libraw->open_buffer(buffer, buffersize);
 
 	if (obret != LIBRAW_SUCCESS){
 		printf("Open buffer error\n");
@@ -102,6 +121,9 @@ uint16_t* Dng_converter::get_buffer(uint32_t frame)
 		return NULL;
 	}
 
+	_w = _imp->image->width;
+	_h = _imp->image->height;
+
 	DNGIdt idt = DNGIdt(_imp->libraw->imgdata.rawdata);
 	idt.getDNGIDTMatrix2(_idt.matrix);
 
@@ -110,14 +132,7 @@ uint16_t* Dng_converter::get_buffer(uint32_t frame)
 	return (uint16_t*)&_imp->image->data;
 }
 
-Dng_converter::Idt Dng_converter::get_idt_matrix()
+Dng_processor::Idt Dng_processor::get_idt_matrix()
 {
 	return _idt;
-}
-
-uint8_t* Dng_converter::get_dng_buffer(uint32_t frame, uint32_t& size)
-{
-	uint8_t *buffer = getDngFrameBuffer(_imp->mlv_object, _imp->dng_object, frame);
-	size = _imp->dng_object->image_size + _imp->dng_object->header_size;
-	return buffer;
 }
