@@ -115,7 +115,7 @@ uint16_t* Dng_processor::get_aces(uint8_t* buffer, size_t buffersize)
 	}
 
 	_imp->image = _imp->libraw->dcraw_make_mem_image(&err);
-
+	
 	if (err != LIBRAW_SUCCESS){
 		printf("make mem image error\n");
 		return NULL;

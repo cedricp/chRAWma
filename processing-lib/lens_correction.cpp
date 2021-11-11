@@ -1,20 +1,25 @@
 #include "lens_correction.h"
 #include <lensfun/lensfun.h>
 
-#include "texture2D.h"
+#include "../utils/texture2D.h"
 #include "../utils/glsl_shader.h"
 
 const char* compute_distort_shader = "#version 440\n"
 "layout (binding=0, rgba16f) uniform writeonly image2D output_buffer;\n"
 "layout (binding=1, rg16f) uniform readonly image2D distort_buffer;\n"
 "layout (binding=2) uniform sampler2D input_buffer;\n"
+"layout (binding=3, r16f) uniform readonly image2D expo_correction;\n"
 "layout (local_size_x = 16, local_size_y = 16) in;\n"
+"uniform bool do_expo;\n"
+"uniform bool do_uv;\n"
 "void main(){\n"
 "ivec2 sz = imageSize(output_buffer);\n"
 "ivec2 loadPos = ivec2(gl_GlobalInvocationID.xy);\n"
-"vec4 uv = imageLoad(distort_buffer, loadPos);\n"
+"vec4 uv;\n"
+"if (do_uv) uv = imageLoad(distort_buffer, loadPos);\n"
+"else uv = vec4(float(loadPos.x), float(loadPos.y), 0.,0.);\n"
 "vec4 color = texture(input_buffer, uv.xy / sz);\n"
-"\n"
+"if (do_expo){color *= imageLoad(expo_correction, loadPos).x;}\n"
 "imageStore(output_buffer, loadPos, color);\n"
 "}\n"
 "\n";
@@ -22,13 +27,11 @@ const char* compute_distort_shader = "#version 440\n"
 const char* compute_copy_shader = "#version 440\n"
 "layout (binding=0, rgba16f) uniform writeonly image2D output_buffer;\n"
 "layout (binding=1, rgba16f) uniform readonly image2D input_buffer;\n"
-"layout (binding=2, r16f) uniform readonly image2D expo_correction;\n"
 "layout (local_size_x = 16, local_size_y = 16) in;\n"
 "void main(){\n"
 "ivec2 loadPos = ivec2(gl_GlobalInvocationID.xy);\n"
 "vec4 color = imageLoad(input_buffer, loadPos);\n"
-"vec4 expo = imageLoad(expo_correction, loadPos);\n"
-"imageStore(output_buffer, loadPos, color * expo.x);\n"
+"imageStore(output_buffer, loadPos, color);\n"
 "}\n"
 "\n";
 
@@ -51,14 +54,16 @@ struct Lens_correction::lens_corr_impl {
 	TextureRGBA16F out_tex;
 	TextureRG16F uv_tex;
 	TextureR16F expo_tex;
+	bool valid;
 };
 
 Lens_correction::Lens_correction(const std::string camera, const std::string lens,
 								 const int width, const int height,
-								 float aperture, float focus_distance, float focus_length) : _width(width), _height(height),
-								 _aperture(aperture), _focus_distance(focus_distance)
+								 float aperture, float focus_distance, float focus_length, bool do_expo, bool do_distort) : _width(width), _height(height),
+								 _aperture(aperture), _focus_distance(focus_distance), _do_expo(do_expo), _do_distort(do_distort)
 {
 	_imp = new lens_corr_impl;
+	_imp->valid = false;
 
 	_uv_distortion_table = NULL;
 	_expo_table = NULL;
@@ -85,8 +90,12 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 	}
 
 	lfModifier *mod = new lfModifier(lflens, focus_length, lfcam->CropFactor, width, height, LF_PF_F32, false);
-	mod->EnableDistortionCorrection();
-	mod->EnableVignettingCorrection(_aperture, _focus_distance);
+	if ( do_distort){
+		mod->EnableDistortionCorrection();
+	}
+	if (do_expo){
+		mod->EnableVignettingCorrection(_aperture, _focus_distance);
+	}
 	mod->ApplyGeometryDistortion(0.0, 0.0, width, height, _uv_distortion_table);
 	mod->ApplyColorModification(_expo_table, 0, 0, width, height, LF_CR_1(INTENSITY), width*sizeof(float));
 
@@ -102,6 +111,8 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 	delete mod;
 	delete[] _uv_distortion_table;
 	delete[] _expo_table;
+
+	_imp->valid = true;
 }
 
 Lens_correction::~Lens_correction()
@@ -109,24 +120,78 @@ Lens_correction::~Lens_correction()
 	delete _imp;
 }
 
-void Lens_correction::apply_correction(unsigned int tex)
+bool Lens_correction::valid()
 {
+	return _imp->valid;
+}
 
+void Lens_correction::apply_correction(const Texture2D& tex)
+{
+	if (!_do_expo && !_do_distort){
+		return;
+	}
 	_imp->shader_distort.bind();
+	glUniform1i(_imp->shader_distort.getUniformLocation("do_expo"), _do_expo);
+	glUniform1i(_imp->shader_distort.getUniformLocation("do_uv"), _do_distort);
 	glBindImageTexture(0, _imp->out_tex.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
 	glBindImageTexture(1, _imp->uv_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
 	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, tex);
+	glBindTexture(GL_TEXTURE_2D, tex.get_gltex());
+	glBindImageTexture(3, _imp->expo_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16F);
 	glDispatchCompute(_width / 16 + 1, _height / 16 + 1, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_imp->shader_distort.unbind();
 
 	_imp->shader_copy.bind();
-	glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+	glBindImageTexture(0, tex.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
 	glBindImageTexture(1, _imp->out_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
-	glBindImageTexture(2, _imp->expo_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16F);
 	glDispatchCompute(_width / 16 + 1, _height / 16 + 1, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_imp->shader_copy.unbind();
+}
 
+unsigned int Lens_correction::expo_gl_texture()
+{
+	return _imp->expo_tex.get_gltex();
+}
+
+unsigned int Lens_correction::uv_gl_texture()
+{
+return _imp->uv_tex.get_gltex();
+}
+
+std::vector<std::string> Lens_correction::get_camera_models()
+{
+	std::vector<std::string> camera_list;
+	const lfCamera ** cameras = _lfdb.get().FindCamerasExt("Canon", NULL);
+	if (!cameras){
+	 return camera_list;
+	}
+	while(*cameras){
+		camera_list.push_back((*cameras)->Model);
+		cameras++;
+	}
+	return camera_list;
+}
+
+std::vector<std::string> Lens_correction::get_lens_models(std::string camera_model)
+{
+	std::vector<std::string> lens_list;
+	const lfCamera ** cameras = _lfdb.get().FindCamerasExt(NULL, camera_model.c_str());
+	
+	if (!cameras){
+		return lens_list;
+	}
+
+	const lfLens ** lenses = _lfdb.get().FindLenses(cameras[0], NULL, NULL);
+	if (!lenses){
+		return lens_list;
+	}
+
+	while(*lenses){
+		lens_list.push_back((*lenses)->Model);
+		lenses++;
+	}
+
+	return lens_list;
 }

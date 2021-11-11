@@ -1,6 +1,10 @@
 #include <inttypes.h>
 #include "3dlut.h"
 
+/*
+* Simple CUBE Lut loader
+*/
+
 Lookup_table::Lookup_table(std::string filename) {
 	uint32_t lut_size = 0;
 	uint32_t i = 0;
@@ -63,7 +67,8 @@ Lookup_table::Lookup_table(std::string filename) {
 			continue;
 		} else if (sscanf(line, "DOMAIN_MAX%*[ \t]%f%*[ \t]%f%*[ \t]%f%*[^\n]",
 				&this->m_domain_max[0], &this->m_domain_max[1],
-				&this->m_domain_max[2]) == 3) {
+				&this->m_domain_max[2]) == 3) 
+				{
 			continue;
 		} else if (sscanf(line, "LUT_1D_INPUT_RANGE%*[ \t]%f%*[ \t]%f%*[^\n]",
 				&inMin, &inMax) == 2) {

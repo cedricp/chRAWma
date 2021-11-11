@@ -44,3 +44,8 @@ void Texture2D::init(GLint level, GLint internalformat, GLsizei width, GLsizei h
 	glTexImage2D(GL_TEXTURE_2D, level, internalformat, width, height, border, format, type, pixels);
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
+
+void Texture2D::clear(GLenum format, GLenum type, void* pixels)
+{
+	glClearTexImage(_texid, 0, format, type, pixels);
+}

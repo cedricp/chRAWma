@@ -312,6 +312,9 @@ Widget::Widget(Window_SDL* win, std::string name, bool managed)
 
 Widget::~Widget()
 {
+	for (auto child: _childrens){
+		delete child;
+	}
 }
 
 void
@@ -351,13 +354,45 @@ void Widget::draw_widget()
 
 		if(ImGui::Begin(_name.c_str(), &_is_open, flags)){
 			draw();
+			for(auto child: _childrens){
+				if (child->_sameline){
+					ImGui::SameLine();
+				}
+				child->draw_widget();
+			}
 		}
+
 		ImGui::End();
 	} else {
 		draw();
 	}
 }
 
+ChildWidget::ChildWidget(Widget* wid, std::string name, bool sameline, int width, int height)
+{
+	_underlying_widget = wid;
+	_sameline = sameline;
+	_sizex = width;
+	_sizey = height;
+	_name = name;
+	wid->add_child(this);
+}
+
+ChildWidget::~ChildWidget()
+{
+
+}
+
+void ChildWidget::draw_widget()
+{
+	ImGui::BeginChild(_name.c_str(), ImVec2(_sizex, _sizey), ImGuiWindowFlags_HorizontalScrollbar);
+	draw();
+	ImGui::EndChild();
+}
+
+void ChildWidget::draw()
+{
+}
 
 static void _atexit_(){
 	if (_APP_INSTANCE_){

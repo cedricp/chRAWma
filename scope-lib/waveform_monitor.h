@@ -1,12 +1,10 @@
 #pragma once
 
 #include "../utils/glsl_shader.h"
+#include "../utils/texture2D.h"
 
 class waveformMonitor
 {
-	unsigned int _input_texture;
-	unsigned int _output_texture_integer;
-	unsigned int _output_texture;
 	uint32_t _width, _height;
 	int _inw, _inh;
 	render::Shader _compute_shader;
@@ -22,6 +20,9 @@ class waveformMonitor
 	unsigned int _mix_spot_loc;
 	unsigned int _mix_scale_loc;
 
+	TextureR32UI _intermediate_texture;
+	TextureRGBA16F _output_texture;
+
 	void deleteTextures();
 	void prepareOutput_textures();
 	void clearTextures();
@@ -29,6 +30,10 @@ class waveformMonitor
 public:
 	waveformMonitor(int w, int h);
 	~waveformMonitor();
-	unsigned int compute(unsigned int input_tex);
+	const Texture2D& compute(const Texture2D& input_tex);
 
+	void set_intensity(float i){_wf_spot_intensity = i;}
+	void set_parade(bool p){_wf_parade = p;}
+	void set_srgb(bool s){_wf_srgb = s;}
+	void set_scale(float s){_wf_scale = s};
 };

@@ -22,7 +22,7 @@ public:
 
 	void data_available(int which){
 		if (m_callback)
-			m_callback(this, (void*)which, m_callback_data);
+			m_callback(this, (void*)(unsigned long)which, m_callback_data);
 	}
 
 	const std::vector<int>& get_fds(){

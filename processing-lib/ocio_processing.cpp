@@ -79,7 +79,7 @@ std::vector<std::string> OCIO_processing::get_displays()
 	return displays;
 }
 
-void OCIO_processing::process(unsigned int tex, int w, int h, float* pre_color_matrix)
+void OCIO_processing::process(const Texture2D& tex, float* pre_color_matrix)
 {
 	float vals[9] = {1.0f,0.0f, 0.0f,
 					0.0f, 1.0f, 0.0f,
@@ -87,10 +87,10 @@ void OCIO_processing::process(unsigned int tex, int w, int h, float* pre_color_m
 	GLuint loc = _imp->_program.getUniformLocation("color_mat");
 	_imp->_program.bind();
 	glUniformMatrix3fv(loc, 1, false, pre_color_matrix ? pre_color_matrix : vals);
-	glBindImageTexture(0, tex, 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(0, tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_3D,_imp-> _lut_texture);
-	glDispatchCompute(w / 16 + 1, h / 16 + 1, 1);
+	glDispatchCompute(tex.width() / 16 + 1, tex.height() / 16 + 1, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_imp->_program.unbind();
 }

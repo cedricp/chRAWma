@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
-
+#include <vector>
+#include "../utils/texture2D.h"
 
 class Lens_correction
 {
@@ -9,11 +10,19 @@ class Lens_correction
 	float* _expo_table;
 	int _width, _height;
 	float _focus_distance, _aperture;
+	bool _do_expo, _do_distort;
 	lens_corr_impl* _imp;
 public:
 	Lens_correction(const std::string camera, const std::string lens, const int width,
-					const int height, float aperture, float focus_distance, float focus_length);
+					const int height, float aperture, float focus_distance, float focus_length,
+					bool do_expo, bool do_distort);
 	~Lens_correction();
 
-	void apply_correction(unsigned int tex);
+	bool valid();
+	void apply_correction(const Texture2D& texture);
+	unsigned int expo_gl_texture();
+	unsigned int uv_gl_texture();
+	static std::vector<std::string> get_camera_models();
+	static std::vector<std::string> get_lens_models(std::string camera_model);
 };
+

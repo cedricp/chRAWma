@@ -5,7 +5,7 @@ extern "C"{
 	#include "llrawproc/llrawproc.h"
 }
 #include <string.h>
-#include "libmlv.h"
+#include "mlv_video.h"
 #include <iostream>
 #include "lens_id.h"
 #include "dng_convert.h"
@@ -32,7 +32,6 @@ Mlv_video::Mlv_video(std::string filename)
 	char err_mess[512];
 
 	_imp->mlv_object = initMlvObjectWithClip(filename.c_str(), MLV_OPEN_FULL, &err, err_mess);
-
 
 	int par[4] = {1,1,1,1};
 	_imp->dng_object = initDngObject(_imp->mlv_object, UNCOMPRESSED_RAW, getMlvFramerateOrig(_imp->mlv_object), par);
@@ -73,6 +72,10 @@ uint16_t* Mlv_video::get_raw_frame(uint32_t frame)
     size_t unpacked_frame_size = pixels_count * sizeof(uint16_t);
     uint16_t * unpacked_frame = (uint16_t *)malloc( unpacked_frame_size );
 
+	if (frame > _imp->mlv_object->frames){
+		frame = _imp->mlv_object->frames - 1;
+	}
+
     getMlvRawFrameUint16(_imp->mlv_object, frame, unpacked_frame);
 
     return unpacked_frame;
@@ -109,8 +112,12 @@ void Mlv_video::free_buffer()
 	_imp->dngc->free_buffer();
 }
 
-unsigned short* Mlv_video::get_raw_processed_buffer(uint32_t frame, float idt_matrix[9])
+uint16_t* Mlv_video::get_raw_buffer(uint32_t frame, float idt_matrix[9])
 {
+	if (frame > _imp->mlv_object->frames){
+		frame = _imp->mlv_object->frames - 1;
+	}
+
 	uint8_t *buffer = getDngFrameBuffer(_imp->mlv_object, _imp->dng_object, frame);
 	size_t size = _imp->dng_object->image_size + _imp->dng_object->header_size;
 
@@ -147,4 +154,9 @@ float Mlv_video::get_focal_dist()
 float Mlv_video::get_aperture()
 {
 	return _imp->mlv_object->LENS.aperture / 100.0f;
+}
+
+uint32_t Mlv_video::get_num_frames()
+{
+	return _imp->mlv_object->frames;
 }

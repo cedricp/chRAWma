@@ -19,6 +19,8 @@ union SDL_Event;
 class Window_SDL;
 struct ImFont;
 
+class ChildWidget;
+
 class Widget
 {
 	bool _is_open = false;
@@ -28,6 +30,7 @@ class Widget
 	bool _is_resizable = true;
 	bool _titlebar = true;
 	bool _modal = false;
+	std::vector<ChildWidget*> _childrens;
 protected:
 	std::string _name;
 	int _posx = 0, _posy = 0;
@@ -38,7 +41,7 @@ public:
 	virtual ~Widget();
 
 	Window_SDL* get_underlying_window(){return _underlying_window;}
-
+	void add_child(ChildWidget* child){_childrens.push_back(child);}
 	void draw_widget();
 	virtual void draw();
 
@@ -50,6 +53,26 @@ public:
 	void set_titlebar(bool t){_titlebar= t;}
 	void set_modal(bool m){_modal = m;}
 	friend class Window_SDL;
+};
+
+class ChildWidget
+{
+	bool _is_resizable = true;
+protected:
+	std::string _name;
+	int _sizex=0, _sizey=0;
+	Widget* _underlying_widget = NULL;
+	bool _sameline;
+public:
+	ChildWidget(Widget* wid, std::string name, bool sameline, int width = 0, int height = 0);
+	virtual ~ChildWidget();
+
+	void draw_widget();
+
+	virtual void draw();
+
+	void set_size(int x, int y){_sizex= x; _sizey = y;}
+	friend class Widget;
 };
 
 class Window_SDL

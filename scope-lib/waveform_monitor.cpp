@@ -110,7 +110,6 @@ waveformMonitor::waveformMonitor(int w, int h) : _height(h), _width(w),
 												 _compute_shader(wf_compute_src),
 												 _compute_shader_mix(wf_comput_mix_src)
 {
-	_input_texture = _output_texture_integer = _output_texture = 0;
 	_inh = _inw = 0;
 	prepareOutput_textures();
 
@@ -124,21 +123,15 @@ waveformMonitor::waveformMonitor(int w, int h) : _height(h), _width(w),
 
 waveformMonitor::~waveformMonitor()
 {
-	deleteTextures();
 }
 
-GLuint waveformMonitor::compute(GLuint input_tex)
+const Texture2D& waveformMonitor::compute(const Texture2D& tex)
 {
-	if (input_tex != _input_texture){
-		_input_texture = input_tex;
-		glBindTexture(GL_TEXTURE_2D, input_tex);
-		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &_inw);
-		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &_inh);
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
+	_inw = tex.width();
+	_inh = tex.height();
 
 	if (!_inw || !_inh){
-		return 0;
+		return _output_texture;
 	}
 
 	clearTextures();
@@ -147,15 +140,15 @@ GLuint waveformMonitor::compute(GLuint input_tex)
 	glUniform1f(_wf_scale_loc, _wf_scale);
 	glUniform1i(_wf_srgb_loc, _wf_srgb);
 	glUniform1i(_wf_parade_loc, _wf_parade);
-	glBindImageTexture (0, _output_texture_integer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
-	glBindImageTexture (1, _input_texture, 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
+	glBindImageTexture (0, _intermediate_texture.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
+	glBindImageTexture (1, tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
 	glDispatchCompute(_inw / 64, _inh / 4, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_compute_shader.unbind();
 
 	_compute_shader_mix.bind();
-	glBindImageTexture (0, _output_texture_integer, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
-	glBindImageTexture (1, _output_texture, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+	glBindImageTexture (0, _intermediate_texture.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
+	glBindImageTexture (1, _output_texture.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
 	glUniform1f(_mix_spot_loc, _wf_spot_intensity);
 	glUniform1f(_mix_scale_loc, _wf_scale);
 	glDispatchCompute(_width / 16, _height / 16, 1);
@@ -165,38 +158,14 @@ GLuint waveformMonitor::compute(GLuint input_tex)
 	return _output_texture;
 }
 
-void waveformMonitor::deleteTextures()
-{
-	if (_output_texture_integer){
-		glDeleteTextures(1, &_output_texture_integer);
-	}
-	if (_output_texture){
-		glDeleteTextures(1, &_output_texture);
-	}
-}
-
 void waveformMonitor::prepareOutput_textures()
 {
-	deleteTextures();
-	glGenTextures(1, &_output_texture_integer);
-	glBindTexture(GL_TEXTURE_2D, _output_texture_integer);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, _width * 3, _height, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, NULL);
-
-	glGenTextures(1, &_output_texture);
-	glBindTexture(GL_TEXTURE_2D, _output_texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, _width, _height, 0, GL_RGBA, GL_HALF_FLOAT, NULL);
+	_intermediate_texture.init(GL_RED_INTEGER, GL_UNSIGNED_INT, _width * 3, _height);
+	_output_texture.init(GL_RGBA, GL_HALF_FLOAT, _width, _height);
 }
 
 void waveformMonitor::clearTextures()
 {
-	glClearTexImage(_output_texture_integer, 0, GL_RED_INTEGER, GL_UNSIGNED_INT, NULL);
-	glClearTexImage(_output_texture, 0, GL_RGBA, GL_HALF_FLOAT, NULL);
+	_intermediate_texture.clear(GL_RED_INTEGER, GL_UNSIGNED_INT);
+	_output_texture.clear(GL_RGBA, GL_HALF_FLOAT);
 }
