@@ -148,7 +148,7 @@ static GLuint       g_GlVersion = 0;                // Extracted at runtime usin
 static char         g_GlslVersionString[32] = "";   // Specified by user or detected based on compile time GL settings.
 static GLuint       g_FontTexture = 0;
 static GLuint       g_ShaderHandle = 0, g_VertHandle = 0, g_FragHandle = 0;
-static GLint        g_AttribLocationTex = 0, g_AttribLocationProjMtx = 0,g_AttribLocationLutTex = 0, g_AttribLocationUseLut = 0; // Uniforms location
+static GLint        g_AttribLocationTex = 0, g_AttribLocationProjMtx = 0,g_AttribLocationLutTex = 0, g_AttribLocationUseLut = 0, g_AttribLocationUseLutForAll = 0; // Uniforms location
 static GLuint       g_AttribLocationVtxPos = 0, g_AttribLocationVtxUV = 0, g_AttribLocationVtxColor = 0; // Vertex attributes location
 static unsigned int g_VboHandle = 0, g_ElementsHandle = 0;
 
@@ -319,7 +319,7 @@ static void ImGui_ImplOpenGL3_SetupRenderState(ImDrawData* draw_data, int fb_wid
 // OpenGL3 Render function.
 // Note that this implementation is little overcomplicated because we are saving/setting up/restoring every OpenGL state explicitly.
 // This is in order to be able to run within an OpenGL engine that doesn't do so.
-void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data, GLuint color_lut)
+void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data, GLuint color_lut, bool lut_gui)
 {
     // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
     int fb_width = (int)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
@@ -406,16 +406,13 @@ void    ImGui_ImplOpenGL3_RenderDrawData(ImDrawData* draw_data, GLuint color_lut
                 {
                     // Apply scissor/clipping rectangle
                     glScissor((int)clip_rect.x, (int)(fb_height - clip_rect.w), (int)(clip_rect.z - clip_rect.x), (int)(clip_rect.w - clip_rect.y));
-                    if (!color_lut){
-                    	glUniform1i(g_AttribLocationUseLut, false);
-                    } else {
-                    	glUniform1i(g_AttribLocationUseLut, true);
-                    }
+                    glUniform1i(g_AttribLocationUseLut, color_lut ? true : false);
+                    glUniform1i(g_AttribLocationUseLutForAll, lut_gui);
+                    // Bind texture, Draw
+                    glActiveTexture(GL_TEXTURE0);
+                    glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)pcmd->TextureId);
                     glActiveTexture(GL_TEXTURE1);
                     glBindTexture(GL_TEXTURE_3D, color_lut);
-                    glActiveTexture(GL_TEXTURE0);
-                    // Bind texture, Draw
-                    glBindTexture(GL_TEXTURE_2D, (GLuint)(intptr_t)pcmd->TextureId);
 #ifdef IMGUI_IMPL_OPENGL_MAY_HAVE_VTX_OFFSET
                     if (g_GlVersion >= 320)
                         glDrawElementsBaseVertex(GL_TRIANGLES, (GLsizei)pcmd->ElemCount, sizeof(ImDrawIdx) == 2 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT, (void*)(intptr_t)(pcmd->IdxOffset * sizeof(ImDrawIdx)), (GLint)pcmd->VtxOffset);
@@ -626,13 +623,24 @@ bool    ImGui_ImplOpenGL3_CreateDeviceObjects()
         "uniform sampler2D Texture;\n"
     	"uniform sampler3D Lut_texture;\n"
     	"uniform bool use_lut;\n"
+        "uniform bool lut_all;\n"
         "in vec2 Frag_UV;\n"
         "in vec4 Frag_Color;\n"
         "out vec4 Out_Color;\n"
         "void main()\n"
         "{\n"
-        "    Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
-    	"    if (use_lut) Out_Color.xyz = texture(Lut_texture, Out_Color.xyz).xyz;\n"
+        "   if(use_lut){\n"
+        "       if (lut_all){"
+        "           Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
+    	"           Out_Color.xyz = texture(Lut_texture, Out_Color.xyz).xyz;\n"
+        "       } else {\n"
+        "           vec4 tex_color = texture(Texture, Frag_UV.st);\n"
+        "           tex_color.xyz = texture(Lut_texture, tex_color.xyz).xyz;\n"
+        "           Out_Color = Frag_Color * tex_color;\n"
+        "       }\n"
+        "   } else {\n"
+        "       Out_Color = Frag_Color * texture(Texture, Frag_UV.st);\n"
+        "   }\n"
         "}\n";
 
     const GLchar* fragment_shader_glsl_300_es =
@@ -702,6 +710,7 @@ bool    ImGui_ImplOpenGL3_CreateDeviceObjects()
     g_AttribLocationTex = glGetUniformLocation(g_ShaderHandle, "Texture");
     g_AttribLocationLutTex = glGetUniformLocation(g_ShaderHandle, "Lut_texture");
     g_AttribLocationUseLut = glGetUniformLocation(g_ShaderHandle, "use_lut");
+    g_AttribLocationUseLutForAll = glGetUniformLocation(g_ShaderHandle, "lut_all");
     g_AttribLocationProjMtx = glGetUniformLocation(g_ShaderHandle, "ProjMtx");
     g_AttribLocationVtxPos = (GLuint)glGetAttribLocation(g_ShaderHandle, "Position");
     g_AttribLocationVtxUV = (GLuint)glGetAttribLocation(g_ShaderHandle, "UV");

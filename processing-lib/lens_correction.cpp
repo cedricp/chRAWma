@@ -58,7 +58,7 @@ struct Lens_correction::lens_corr_impl {
 };
 
 Lens_correction::Lens_correction(const std::string camera, const std::string lens,
-								 const int width, const int height,
+								 const int width, const int height, float crop_factor,
 								 float aperture, float focus_distance, float focus_length, bool do_expo, bool do_distort) : _width(width), _height(height),
 								 _aperture(aperture), _focus_distance(focus_distance), _do_expo(do_expo), _do_distort(do_distort)
 {
@@ -82,35 +82,49 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
     }
 	lflens = lenses[0];
 
-	_uv_distortion_table = new float[width*height*2];
-	_expo_table = new float[width*height];
-
-	for (int i = 0; i < width*height; ++i){
-		_expo_table[i] = 1.0f;
+	if (do_distort){
+		_uv_distortion_table = new float[width*height*2];
 	}
+	if (do_expo){
+		 _expo_table = new float[width*height];
 
-	lfModifier *mod = new lfModifier(lflens, focus_length, lfcam->CropFactor, width, height, LF_PF_F32, false);
-	if ( do_distort){
+		for (int i = 0; i < width*height; ++i){
+			_expo_table[i] = 1.0f;
+		}
+	}
+	
+	float crop = crop_factor != 0 ? crop_factor : lfcam->CropFactor;
+
+	lfModifier *mod = new lfModifier(lflens, focus_length, crop, width, height, LF_PF_F32, false);
+	if (do_distort){
 		mod->EnableDistortionCorrection();
 	}
 	if (do_expo){
 		mod->EnableVignettingCorrection(_aperture, _focus_distance);
 	}
-	mod->ApplyGeometryDistortion(0.0, 0.0, width, height, _uv_distortion_table);
-	mod->ApplyColorModification(_expo_table, 0, 0, width, height, LF_CR_1(INTENSITY), width*sizeof(float));
+	if (do_distort){
+		mod->ApplyGeometryDistortion(0.0, 0.0, width, height, _uv_distortion_table);
+	}
+	if (do_expo){
+		mod->ApplyColorModification(_expo_table, 0, 0, width, height, LF_CR_1(INTENSITY), width*sizeof(float));
+	}
 
 	std::string shader = compute_distort_shader;
 	std::string shader_copy = compute_copy_shader;
 	_imp->shader_distort.init_from_string(shader);
 	_imp->shader_copy.init_from_string(shader_copy);
 
-	_imp->expo_tex.init(GL_RED, GL_FLOAT,  _width,  _height,  _expo_table);
-	_imp->uv_tex.init(GL_RG, GL_FLOAT,  _width,  _height,  _uv_distortion_table);
+	if(do_expo){
+		_imp->expo_tex.init(GL_RED, GL_FLOAT,  _width,  _height,  _expo_table);
+	}
+	if (do_distort){
+		_imp->uv_tex.init(GL_RG, GL_FLOAT,  _width,  _height,  _uv_distortion_table);
+	}
 	_imp->out_tex.init(GL_RGBA, GL_FLOAT,  _width,  _height);
 
 	delete mod;
-	delete[] _uv_distortion_table;
-	delete[] _expo_table;
+	if (do_distort)	delete[] _uv_distortion_table;
+	if (do_expo)	delete[] _expo_table;
 
 	_imp->valid = true;
 }
@@ -127,9 +141,6 @@ bool Lens_correction::valid()
 
 void Lens_correction::apply_correction(const Texture2D& tex)
 {
-	if (!_do_expo && !_do_distort){
-		return;
-	}
 	_imp->shader_distort.bind();
 	glUniform1i(_imp->shader_distort.getUniformLocation("do_expo"), _do_expo);
 	glUniform1i(_imp->shader_distort.getUniformLocation("do_uv"), _do_distort);

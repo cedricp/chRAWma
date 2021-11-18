@@ -13,8 +13,8 @@ class Lens_correction
 	bool _do_expo, _do_distort;
 	lens_corr_impl* _imp;
 public:
-	Lens_correction(const std::string camera, const std::string lens, const int width,
-					const int height, float aperture, float focus_distance, float focus_length,
+	Lens_correction(const std::string camera, const std::string lens, const int width, 
+					const int height, float crop_factor, float aperture, float focus_distance, float focus_length,
 					bool do_expo, bool do_distort);
 	~Lens_correction();
 

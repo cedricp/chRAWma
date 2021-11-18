@@ -75,20 +75,6 @@ static uint64_t file_set_pos(FILE *stream, uint64_t offset, int whence)
 
 enum { IMG_SIZE_UNPACKED, IMG_SIZE_PACKED, IMG_SIZE_LOSLESS };
 
-//MLV WB modes
-enum
-{
-    WB_AUTO         = 0,
-    WB_SUNNY        = 1,
-    WB_SHADE        = 8,
-    WB_CLOUDY       = 2,
-    WB_TUNGSTEN     = 3,
-    WB_FLUORESCENT  = 4,
-    WB_FLASH        = 5,
-    WB_CUSTOM       = 6,
-    WB_KELVIN       = 9
-};
-
 /*****************************************************************************************************
  * Kelvin/Green to RGB Multipliers from UFRAW
  *****************************************************************************************************/
@@ -250,7 +236,7 @@ static void kelvin_green_to_multipliers(double temperature, double green, double
     chanMulArray[1] = 1;
 }
 
-static void get_white_balance(mlv_wbal_hdr_t wbal_hdr, int32_t *wbal, uint32_t cam_id)
+void get_white_balance(mlv_wbal_hdr_t wbal_hdr, int32_t *wbal, uint32_t cam_id)
 {
     if(wbal_hdr.wb_mode == WB_CUSTOM)
     {

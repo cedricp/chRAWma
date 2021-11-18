@@ -1,4 +1,5 @@
 #include "texture2D.h"
+#include <stdio.h>
 
 Texture2D::Texture2D() {
 	_texid = 0;
@@ -9,7 +10,7 @@ Texture2D::Texture2D() {
 Texture2D::Texture2D(GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type,
 					 GLint wrap_s, GLint wrap_t, GLint min_filter, GLint max_filter,const void *pixels) {
 	_texid = 0;
-	init(level, internalformat, width, height, border, format, type, wrap_s, wrap_t, min_filter, max_filter, pixels);
+	_init(level, internalformat, width, height, border, format, type, wrap_s, wrap_t, min_filter, max_filter, pixels);
 }
 
 Texture2D::~Texture2D() {
@@ -27,7 +28,7 @@ void Texture2D::update_buffer(GLint xoffset, GLint yoffset, GLsizei width, GLsiz
 	}
 }
 
-void Texture2D::init(GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type,
+void Texture2D::_init(GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type,
 					 GLint wrap_s, GLint wrap_t, GLint min_filter, GLint max_filter,const void *pixels)
 {
 	if (_texid){
@@ -35,6 +36,7 @@ void Texture2D::init(GLint level, GLint internalformat, GLsizei width, GLsizei h
 	}
 	_width = width;
 	_height = height;
+	_internal_format = internalformat;
 	glGenTextures(1, &_texid);
 	glBindTexture(GL_TEXTURE_2D, _texid);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap_s);
@@ -48,4 +50,26 @@ void Texture2D::init(GLint level, GLint internalformat, GLsizei width, GLsizei h
 void Texture2D::clear(GLenum format, GLenum type, void* pixels)
 {
 	glClearTexImage(_texid, 0, format, type, pixels);
+}
+
+void Texture2D::swap(Texture2D& s)
+{
+	if (_internal_format != s._internal_format){
+		printf("Cannot texture swap, different types\n");
+		return;
+	}
+	int temp_if = _internal_format;
+	int temp_w = _width;
+	int temp_h = _height;
+	GLuint temp_id = _texid;
+
+	_internal_format = s._internal_format;
+	_width = s._width;
+	_height = s._height;
+	_texid = s._texid;
+
+	s._internal_format = temp_if;
+	s._height = temp_h;
+	s._width = temp_w;
+	s._texid = temp_id;
 }

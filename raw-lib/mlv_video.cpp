@@ -15,6 +15,7 @@ struct mlv_imp
 	mlvObject_t* mlv_object;
 	Dng_processor *dngc;
 	dngObject_t* dng_object;
+	mlv_wbal_hdr_t original_wbal;
 };
 
 std::string get_map_name(mlvObject_t* mvl_object)
@@ -24,7 +25,7 @@ std::string get_map_name(mlvObject_t* mvl_object)
     return name;
 }
 
-Mlv_video::Mlv_video(std::string filename)
+Mlv_video::Mlv_video(std::string filename) : Video_base()
 {
 	_imp = new mlv_imp;
 
@@ -42,15 +43,7 @@ Mlv_video::Mlv_video(std::string filename)
 		std::cout << "MLV open problem : " << err_mess << std::endl;
 		return;
 	}
-
-	llrpSetFixRawMode(_imp->mlv_object, 1);
-	llrpSetChromaSmoothMode(_imp->mlv_object, CS_2x2);
-	llrpResetDngBWLevels(_imp->mlv_object);
-
-    int focusDetect = llrpDetectFocusDotFixMode(_imp->mlv_object);
-    if( focusDetect != 0 ){
-		llrpSetFocusPixelMode(_imp->mlv_object, focusDetect);
-    }
+	memcpy(&_imp->original_wbal, &_imp->mlv_object->WBAL, sizeof(mlv_wbal_hdr_t));
 }
 
 Mlv_video::~Mlv_video()
@@ -81,12 +74,12 @@ uint16_t* Mlv_video::get_raw_frame(uint32_t frame)
     return unpacked_frame;
 }
 
-uint32_t Mlv_video::resolution_x()
+uint32_t Mlv_video::raw_resolution_x()
 {
 	return getMlvWidth(_imp->mlv_object);
 }
 
-uint32_t Mlv_video::resolution_y()
+uint32_t Mlv_video::raw_resolution_y()
 {
 	return getMlvHeight(_imp->mlv_object);
 }
@@ -103,7 +96,7 @@ uint32_t Mlv_video::black_level()
 
 uint32_t Mlv_video::white_level()
 {
-	return _imp->mlv_object->RAWI.raw_info.black_level;
+	return _imp->mlv_object->RAWI.raw_info.white_level;
 
 }
 
@@ -112,15 +105,37 @@ void Mlv_video::free_buffer()
 	_imp->dngc->free_buffer();
 }
 
-uint16_t* Mlv_video::get_raw_buffer(uint32_t frame, float idt_matrix[9])
+uint16_t* Mlv_video::get_raw_buffer(uint32_t frame, float idt_matrix[9], const RawInfo& ri)
 {
-	if (frame > _imp->mlv_object->frames){
+	if (frame >= _imp->mlv_object->frames){
 		frame = _imp->mlv_object->frames - 1;
+	}
+
+	memcpy(&_imp->mlv_object->WBAL, &_imp->original_wbal, sizeof(mlv_wbal_hdr_t));
+
+	if (ri.temperature != -1){
+		_imp->mlv_object->WBAL.wb_mode = WB_KELVIN;
+		_imp->mlv_object->WBAL.kelvin = ri.temperature;
+	}
+
+	llrpSetFixRawMode(_imp->mlv_object, 1);
+	llrpSetChromaSmoothMode(_imp->mlv_object, raw_info().chroma_smooth+1);
+	llrpResetDngBWLevels(_imp->mlv_object);
+
+	if (ri.fix_focuspixels){
+		int focusDetect = llrpDetectFocusDotFixMode(_imp->mlv_object);
+		if( focusDetect != 0 ){
+			llrpSetFocusPixelMode(_imp->mlv_object, focusDetect);
+		}
+	} else {
+		llrpSetFocusPixelMode(_imp->mlv_object, FP_OFF);
 	}
 
 	uint8_t *buffer = getDngFrameBuffer(_imp->mlv_object, _imp->dng_object, frame);
 	size_t size = _imp->dng_object->image_size + _imp->dng_object->header_size;
-
+	// Set debayer type
+	_imp->dngc->set_interpolation(_rawinfo.interpolation);
+	// Get ACES AP0 color space buffer
 	uint16_t* rawbuffer = _imp->dngc->get_aces(buffer, size);
 	Dng_processor::Idt idt = _imp->dngc->get_idt_matrix();
 	memcpy((void*)idt_matrix, (void*)idt.matrix, 9*sizeof(float));
@@ -159,4 +174,50 @@ float Mlv_video::get_aperture()
 uint32_t Mlv_video::get_num_frames()
 {
 	return _imp->mlv_object->frames;
+}
+
+float Mlv_video::get_crop_factor()
+{
+	return float(_imp->mlv_object->RAWC.sensor_crop) / 100.f;
+}
+
+float Mlv_video::get_final_crop_factor()
+{
+	mlv_rawc_hdr_t& m = _imp->mlv_object->RAWC;
+	return ((float)m.sensor_res_x / ((float)get_sampling_factor_x() * (float)raw_resolution_x())) * get_crop_factor();
+}
+
+uint32_t Mlv_video::get_iso()
+{
+	return _imp->mlv_object->EXPO.isoValue;
+}
+
+int Mlv_video::get_bpp()
+{
+	return _imp->mlv_object->RAWI.raw_info.bits_per_pixel;
+}
+
+uint32_t Mlv_video::get_shutter()
+{
+	return _imp->mlv_object->EXPO.shutterValue / uint64_t(1000);
+}
+
+int Mlv_video::get_pixel_binning_x()
+{
+	return _imp->mlv_object->RAWC.binning_x;
+}
+
+int Mlv_video::get_pixel_binning_y()
+{
+	return _imp->mlv_object->RAWC.binning_y;
+}
+
+int Mlv_video::get_sampling_factor_x()
+{
+	return _imp->mlv_object->RAWC.binning_x + _imp->mlv_object->RAWC.skipping_x;
+}
+
+int Mlv_video::get_sampling_factor_y()
+{
+	return _imp->mlv_object->RAWC.binning_y + _imp->mlv_object->RAWC.skipping_y;
 }

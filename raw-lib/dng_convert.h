@@ -18,10 +18,12 @@ public:
 	int width(){return _w;}
 	int height(){return _h;}
 	void idt(float idt[9]){for(int i = 0; i < 9; ++i){idt[i] = _idt.matrix[i];} }
+	void set_interpolation(int i){_interpolation = i;}
 private:
 	struct dngc_impl;
 	dngc_impl* _imp;
 	unsigned short *_buffer;
 	Idt _idt;
 	int _w, _h;
+	int _interpolation;
 };

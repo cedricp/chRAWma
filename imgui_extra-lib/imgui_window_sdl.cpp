@@ -8,15 +8,14 @@
 #include <SDL.h>
 #include <SDL_opengl.h>
 
-
 #include <time.h>
 #include <sys/time.h>
 #include <vector>
 #include <algorithm>
 #include <unistd.h>
 #include <map>
-#include "timer.h"
 
+#include "timer.h"
 #include "3dlut.h"
 
 static ImPlotContext* _implotcontext = 0L;
@@ -31,6 +30,9 @@ struct impl
 	bool _is_shown = false;
 	std::string _name;
 	GLuint _monitor_lut_glid = 0;
+	bool _lut_gui= false;
+	bool _lut_texture = true;
+	std::string _monitor_lut_name;
 };
 
 struct app_impl
@@ -152,12 +154,16 @@ void  Window_SDL::set_monitor_lut(std::string lut_file)
 		glDeleteTextures(1, &_impl->_monitor_lut_glid);
 	}
 
+	_impl->_monitor_lut_glid = 0;
+	_impl->_monitor_lut_name = "";
+
 	Lookup_table monitor_lut(lut_file);
 
 	float* lut_data = monitor_lut.get_data();
 	if (!lut_data || !monitor_lut.is3d()){
 		return;
 	}
+	_impl->_monitor_lut_name = lut_file;
 
 	int lut_size = monitor_lut.get_dimension();
 
@@ -170,6 +176,18 @@ void  Window_SDL::set_monitor_lut(std::string lut_file)
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB32F, lut_size, lut_size, lut_size, 0, GL_RGB, GL_FLOAT, lut_data);
 	glBindTexture(GL_TEXTURE_3D, 0);
+}
+
+std::string Window_SDL::monitor_lut_filename()
+{
+	return _impl->_monitor_lut_name;
+}
+void Window_SDL::set_lut_gui(bool a){
+	_impl->_lut_gui = a;
+}
+
+void Window_SDL::set_lut_texture(bool a){
+	_impl->_lut_texture = a;
 }
 
 unsigned int Window_SDL::get_windid()
@@ -219,7 +237,7 @@ void Window_SDL::draw()
 	SDL_GL_MakeCurrent(_impl->_window, _impl->_gl_context);
 	ImGui_ImplSDL2_Set_Window(_impl->_window);
 	static bool show_demo = true;
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 1.00f);
     ImGuiIO& io = ImGui::GetIO();
 
     // Start the Dear ImGui frame
@@ -240,8 +258,8 @@ void Window_SDL::draw()
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
     glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT);
-    //glUseProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData(), _impl->_monitor_lut_glid);
+    glUseProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData(), _impl->_lut_texture ? _impl->_monitor_lut_glid : 0, _impl->_lut_gui);
     SDL_GL_SwapWindow(_impl->_window);
 }
 
@@ -639,7 +657,7 @@ void App_SDL::run()
         	}
 
             if (event.type == SDL_QUIT){
-                done = true;
+                goto end;
             }
         }
         while (event_raised--){
@@ -649,4 +667,5 @@ void App_SDL::run()
         }
         usleep(800);
     }
+	end:;
 }

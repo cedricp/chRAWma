@@ -35,5 +35,5 @@ public:
 	void set_intensity(float i){_wf_spot_intensity = i;}
 	void set_parade(bool p){_wf_parade = p;}
 	void set_srgb(bool s){_wf_srgb = s;}
-	void set_scale(float s){_wf_scale = s};
+	void set_scale(float s){_wf_scale = s;}
 };

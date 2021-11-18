@@ -6,7 +6,7 @@
 class DNGIdt {
 	public:
 		DNGIdt();
-		DNGIdt ( libraw_rawdata_t R );
+		DNGIdt ( libraw_rawdata_t R);
 		virtual ~DNGIdt();
 
 		double ccttoMired ( const double cct ) const;

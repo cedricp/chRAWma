@@ -94,6 +94,9 @@ public:
 	bool is_shown();
 
 	void set_monitor_lut(std::string lut_file);
+	std::string monitor_lut_filename();
+	void set_lut_gui(bool);
+	void set_lut_texture(bool);
 
 private:
 	impl* _impl;

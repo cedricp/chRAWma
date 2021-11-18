@@ -30,6 +30,20 @@
 #define UNCOMPRESSED_ORIG 2
 #define COMPRESSED_ORIG 3
 
+//MLV WB modes
+enum
+{
+    WB_AUTO         = 0,
+    WB_SUNNY        = 1,
+    WB_SHADE        = 8,
+    WB_CLOUDY       = 2,
+    WB_TUNGSTEN     = 3,
+    WB_FLUORESCENT  = 4,
+    WB_FLASH        = 5,
+    WB_CUSTOM       = 6,
+    WB_KELVIN       = 9
+};
+
 /* dngObject struct consists of DNG header and image buffers and their sizes */
 typedef struct
 {
@@ -54,6 +68,7 @@ void dng_unpack_image_bits(uint16_t * input_buffer, uint16_t * output_buffer, in
 void dng_pack_image_bits(uint16_t * input_buffer, uint16_t * output_buffer, int width, int height, uint32_t bpp, int big_endian);
 int dng_compress_image(uint16_t * output_buffer, uint16_t * input_buffer, size_t * output_buffer_size, int width, int height, uint32_t bpp);
 int dng_decompress_image(uint16_t * output_buffer, uint16_t * input_buffer, size_t input_buffer_size, int width, int height, uint32_t bpp);
+void get_white_balance(mlv_wbal_hdr_t wbal_hdr, int32_t *wbal, uint32_t cam_id);
 
 /* routines to initialize, save and free DNG exporting struct */
 dngObject_t * initDngObject(mlvObject_t * mlv_data, int raw_state, double fps, int32_t par[4]);
