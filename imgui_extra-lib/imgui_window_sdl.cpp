@@ -240,13 +240,14 @@ void Window_SDL::draw()
     ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 1.00f);
     ImGuiIO& io = ImGui::GetIO();
 
+	static bool start = true;
+	
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame(_impl->_window);
     ImGui::NewFrame();
 
     if (_impl->widgets.empty()){
-    	//ImPlot::ShowDemoWindow(&show_demo);
     	ImGui::ShowDemoWindow(&show_demo);
     }
 	for (auto widget: _impl->widgets){
@@ -258,7 +259,7 @@ void Window_SDL::draw()
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
     glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT);
-    glUseProgram(0); // You may want this if using this code in an OpenGL 3+ context where shaders may be bound
+    glUseProgram(0);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData(), _impl->_lut_texture ? _impl->_monitor_lut_glid : 0, _impl->_lut_gui);
     SDL_GL_SwapWindow(_impl->_window);
 }
@@ -516,7 +517,12 @@ void App_SDL::unregister_timer(Timer* t)
 ImFont* App_SDL::load_font(std::string fontname, float size)
 {
 	assert(&ImGui::GetIO());
-	ImFont* font = ImGui::GetIO().Fonts->AddFontFromFileTTF(fontname.c_str(), size);
+	ImVector<ImWchar> ranges;
+	ImFontGlyphRangesBuilder builder;
+	builder.AddRanges(ImGui::GetIO().Fonts->GetGlyphRangesDefault());
+	builder.AddChar(0x221E);                               // Add a specific character
+	builder.BuildRanges(&ranges); 
+	ImFont* font = ImGui::GetIO().Fonts->AddFontFromFileTTF(fontname.c_str(), size, NULL, ranges.Data);
 	assert(font);
 	unsigned char* pixels;
 	int width, height;
@@ -665,7 +671,7 @@ void App_SDL::run()
 				window->draw();
 			}
         }
-        usleep(800);
+        usleep(5000);
     }
 	end:;
 }

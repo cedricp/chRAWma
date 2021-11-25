@@ -30,6 +30,8 @@ namespace imgui_addons
             /* Store the opened/saved file name or dir name (incase of selectDirectoryDialog) and the absolute path to the selection
              * Should only be accessed when above functions return true else may contain garbage.
              */
+            bool selected_is_sequence;
+            int selected_seq_min, selected_seq_max;
             std::string selected_fn;
             std::string selected_path;
             std::string ext;    // Store the saved file extension
@@ -42,6 +44,8 @@ namespace imgui_addons
                 }
                 std::string name;
                 bool is_hidden;
+                bool is_sequence;
+                int min_seq, max_seq;
             };
 
             //Enum used as bit flags.
@@ -112,8 +116,8 @@ namespace imgui_addons
 
             ImGuiTextFilter filter;
             std::string valid_types;
-            std::vector<const Info*> filtered_dirs; // Note: We don't need to call delete. It's just for storing filtered items from subdirs and subfiles so we don't use PassFilter every frame.
-            std::vector<const Info*> filtered_files;
+            std::vector<Info*> filtered_dirs; // Note: We don't need to call delete. It's just for storing filtered items from subdirs and subfiles so we don't use PassFilter every frame.
+            std::vector<Info*> filtered_files;
             std::vector< std::reference_wrapper<std::string> > inputcb_filter_files;
     };
 }

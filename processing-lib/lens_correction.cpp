@@ -12,11 +12,12 @@ const char* compute_distort_shader = "#version 440\n"
 "layout (local_size_x = 16, local_size_y = 16) in;\n"
 "uniform bool do_expo;\n"
 "uniform bool do_uv;\n"
+"uniform int starty;"
 "void main(){\n"
 "ivec2 sz = imageSize(output_buffer);\n"
 "ivec2 loadPos = ivec2(gl_GlobalInvocationID.xy);\n"
 "vec4 uv;\n"
-"if (do_uv) uv = imageLoad(distort_buffer, loadPos);\n"
+"if (do_uv){uv = imageLoad(distort_buffer, loadPos);uv.y -= starty;}\n"
 "else uv = vec4(float(loadPos.x), float(loadPos.y), 0.,0.);\n"
 "vec4 color = texture(input_buffer, uv.xy / sz);\n"
 "if (do_expo){color *= imageLoad(expo_correction, loadPos).x;}\n"
@@ -50,7 +51,6 @@ static lfdb _lfdb;
 
 struct Lens_correction::lens_corr_impl {
 	render::Shader shader_distort;
-	render::Shader shader_copy;
 	TextureRGBA16F out_tex;
 	TextureRG16F uv_tex;
 	TextureR16F expo_tex;
@@ -59,7 +59,7 @@ struct Lens_correction::lens_corr_impl {
 
 Lens_correction::Lens_correction(const std::string camera, const std::string lens,
 								 const int width, const int height, float crop_factor,
-								 float aperture, float focus_distance, float focus_length, bool do_expo, bool do_distort) : _width(width), _height(height),
+								 float aperture, float focus_distance, float focus_length, float sensor_ratio, bool do_expo, bool do_distort) : _width(width), _height(height),
 								 _aperture(aperture), _focus_distance(focus_distance), _do_expo(do_expo), _do_distort(do_distort)
 {
 	_imp = new lens_corr_impl;
@@ -82,6 +82,8 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
     }
 	lflens = lenses[0];
 
+	int h = (float)width / sensor_ratio;
+
 	if (do_distort){
 		_uv_distortion_table = new float[width*height*2];
 	}
@@ -89,38 +91,39 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 		 _expo_table = new float[width*height];
 
 		for (int i = 0; i < width*height; ++i){
-			_expo_table[i] = 1.0f;
+			_expo_table[i] = 1.f;
 		}
 	}
-	
+
+	_starty = (h - height) / 2;
+
 	float crop = crop_factor != 0 ? crop_factor : lfcam->CropFactor;
 
-	lfModifier *mod = new lfModifier(lflens, focus_length, crop, width, height, LF_PF_F32, false);
-	if (do_distort){
-		mod->EnableDistortionCorrection();
-	}
+	lfModifier *mod = new lfModifier(lflens, focus_length, crop, width, h, LF_PF_F32, false);
 	if (do_expo){
 		mod->EnableVignettingCorrection(_aperture, _focus_distance);
 	}
 	if (do_distort){
-		mod->ApplyGeometryDistortion(0.0, 0.0, width, height, _uv_distortion_table);
+		mod->EnableDistortionCorrection();
 	}
 	if (do_expo){
-		mod->ApplyColorModification(_expo_table, 0, 0, width, height, LF_CR_1(INTENSITY), width*sizeof(float));
+		mod->ApplyColorModification(_expo_table, 0.0, _starty, width, height, LF_CR_1(INTENSITY), width*sizeof(float));
+	}
+	if (do_distort){
+		mod->ApplyGeometryDistortion(0.0f, _starty, width, height, _uv_distortion_table);
 	}
 
 	std::string shader = compute_distort_shader;
 	std::string shader_copy = compute_copy_shader;
 	_imp->shader_distort.init_from_string(shader);
-	_imp->shader_copy.init_from_string(shader_copy);
 
 	if(do_expo){
-		_imp->expo_tex.init(GL_RED, GL_FLOAT,  _width,  _height,  _expo_table);
+		_imp->expo_tex.init(GL_RED, GL_FLOAT, _width, _height, _expo_table);
 	}
 	if (do_distort){
-		_imp->uv_tex.init(GL_RG, GL_FLOAT,  _width,  _height,  _uv_distortion_table);
+		_imp->uv_tex.init(GL_RG, GL_FLOAT, _width, _height, _uv_distortion_table);
 	}
-	_imp->out_tex.init(GL_RGBA, GL_FLOAT,  _width,  _height);
+	_imp->out_tex.init(GL_RGBA, GL_FLOAT, _width, _height);
 
 	delete mod;
 	if (do_distort)	delete[] _uv_distortion_table;
@@ -139,36 +142,32 @@ bool Lens_correction::valid()
 	return _imp->valid;
 }
 
-void Lens_correction::apply_correction(const Texture2D& tex)
+void Lens_correction::apply_correction(Texture2D& tex)
 {
 	_imp->shader_distort.bind();
 	glUniform1i(_imp->shader_distort.getUniformLocation("do_expo"), _do_expo);
 	glUniform1i(_imp->shader_distort.getUniformLocation("do_uv"), _do_distort);
-	glBindImageTexture(0, _imp->out_tex.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-	glBindImageTexture(1, _imp->uv_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
+	glUniform1i(_imp->shader_distort.getUniformLocation("starty"), _starty);
+	glBindImageTexture(0, _imp->out_tex.gl_texture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+	glBindImageTexture(1, _imp->uv_tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
 	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, tex.get_gltex());
-	glBindImageTexture(3, _imp->expo_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16F);
-	glDispatchCompute(_width / 16 + 1, _height / 16 + 1, 1);
+	glBindTexture(GL_TEXTURE_2D, tex.gl_texture());
+	glBindImageTexture(3, _imp->expo_tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16F);
+	glDispatchCompute((_width + 15) / 16, (_height + 15) / 16, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_imp->shader_distort.unbind();
 
-	_imp->shader_copy.bind();
-	glBindImageTexture(0, tex.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-	glBindImageTexture(1, _imp->out_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
-	glDispatchCompute(_width / 16 + 1, _height / 16 + 1, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-	_imp->shader_copy.unbind();
+	tex.swap(_imp->out_tex);
 }
 
 unsigned int Lens_correction::expo_gl_texture()
 {
-	return _imp->expo_tex.get_gltex();
+	return _imp->expo_tex.gl_texture();
 }
 
 unsigned int Lens_correction::uv_gl_texture()
 {
-return _imp->uv_tex.get_gltex();
+return _imp->uv_tex.gl_texture();
 }
 
 std::vector<std::string> Lens_correction::get_camera_models()
@@ -205,4 +204,28 @@ std::vector<std::string> Lens_correction::get_lens_models(std::string camera_mod
 	}
 
 	return lens_list;
+}
+
+void Lens_correction::get_lens_min_max_focal(std::string lens, float& min, float &max)
+{
+	const lfLens ** lenses = _lfdb.get().FindLenses(NULL, NULL, lens.c_str());
+	if (!lenses){
+		return;
+	}
+
+	min = lenses[0]->MinFocal;
+	max = lenses[0]->MaxFocal;
+}
+
+float Lens_correction::get_crop_factor(std::string camera)
+{
+	std::vector<std::string> lens_list;
+	const lfCamera ** cameras = _lfdb.get().FindCamerasExt(NULL, camera.c_str());
+	
+	if (!cameras){
+		return 1.0f;
+
+	}
+
+	return cameras[0]->CropFactor;
 }

@@ -172,7 +172,7 @@ struct raw_info {
         int32_t dng_active_area[4];
     };
     int32_t exposure_bias[2];       // DNG Exposure Bias (idk what's that)
-    int32_t cfa_pattern;            // stick to 0x02010100 (RGBG) if you can
+    int32_t cfa_pattern;            // nastick to 0x02010100 (RGBG) if you can
     int32_t calibration_illuminant1;
     int32_t color_matrix1[18];      // DNG Color Matrix
     int32_t dynamic_range;          // EV x100, from analyzing black level and noise (very close to DxO)

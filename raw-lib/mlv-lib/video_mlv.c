@@ -771,7 +771,7 @@ int saveMlvHeaders(mlvObject_t * video, FILE * output_mlv, int export_audio, int
     if(video->WAVI.blockType[0] && export_audio && (export_mode < MLV_AVERAGED_FRAME)) strcat(export_audio_str, "ON");
     else strcat(export_audio_str, "OFF");
 
-    sprintf(version_info, "exported by MLV App version %s on %s; export mode: %s (audio: %s) ", version, tms, export_mode_str, export_audio_str);
+    sprintf(version_info, "exported by chRAWma version %s on %s; export mode: %s (audio: %s) ", version, tms, export_mode_str, export_audio_str);
     size_t vers_info_size = strlen(version_info) + 1;
     size_t vers_block_size = sizeof(mlv_vers_hdr_t) + vers_info_size;
     mlv_vers_hdr_t VERS_HEADER = { "VERS", vers_block_size, 0xFFFFFFFFFFFFFFFF, vers_info_size };

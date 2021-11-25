@@ -140,15 +140,15 @@ const Texture2D& waveformMonitor::compute(const Texture2D& tex)
 	glUniform1f(_wf_scale_loc, _wf_scale);
 	glUniform1i(_wf_srgb_loc, _wf_srgb);
 	glUniform1i(_wf_parade_loc, _wf_parade);
-	glBindImageTexture (0, _intermediate_texture.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
-	glBindImageTexture (1, tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
+	glBindImageTexture (0, _intermediate_texture.gl_texture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
+	glBindImageTexture (1, tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RGBA16F);
 	glDispatchCompute(_inw / 64, _inh / 4, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_compute_shader.unbind();
 
 	_compute_shader_mix.bind();
-	glBindImageTexture (0, _intermediate_texture.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
-	glBindImageTexture (1, _output_texture.get_gltex(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
+	glBindImageTexture (0, _intermediate_texture.gl_texture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R32UI);
+	glBindImageTexture (1, _output_texture.gl_texture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
 	glUniform1f(_mix_spot_loc, _wf_spot_intensity);
 	glUniform1f(_mix_scale_loc, _wf_scale);
 	glDispatchCompute(_width / 16, _height / 16, 1);

@@ -6,24 +6,14 @@
 #  LENSFUN_FOUND, If false, do not try to use lensfun.
 # also defined, but not for general use are
 #  LENSFUN_LIBRARY, where to find the lensfun library.
- 
- 
-#=============================================================================
-# Copyright 2010 henrik andersson
-#=============================================================================
 
-SET(INCLUDE_PATH /usr/local/include/lensfun)
-SET(LIB_PATH /usr/local/lib)
-
-find_path(LENSFUN_INCLUDE_DIR lensfun.h PATHS ${INCLUDE_PATH})
+find_path(LENSFUN_INCLUDE_DIR lensfun/lensfun.h)
 mark_as_advanced(LENSFUN_INCLUDE_DIR)
  
 set(LENSFUN_NAMES ${LENSFUN_NAMES} lensfun liblensfun)
-find_library(LENSFUN_LIBRARY NAMES ${LENSFUN_NAMES} PATHS ${LIB_PATH} NO_DEFAULT_PATH)
+find_library(LENSFUN_LIBRARY NAMES ${LENSFUN_NAMES})
 mark_as_advanced(LENSFUN_LIBRARY)
  
-# handle the QUIETLY and REQUIRED arguments and set LENSFUN_FOUND to TRUE if
-# all listed variables are TRUE
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(LENSFUN DEFAULT_MSG LENSFUN_LIBRARY LENSFUN_INCLUDE_DIR)
  

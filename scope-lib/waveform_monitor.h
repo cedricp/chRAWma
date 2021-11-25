@@ -15,7 +15,7 @@ class waveformMonitor
 	float _wf_scale = 1.0;
 	int _wf_srgb = 0;
 	int _wf_parade = 1;
-	float _wf_spot_intensity = 1.0f;
+	float _wf_spot_intensity = 2.0f;
 
 	unsigned int _mix_spot_loc;
 	unsigned int _mix_scale_loc;

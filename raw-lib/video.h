@@ -19,7 +19,10 @@ public:
         int32_t chroma_smooth = 0;
         int32_t temperature = -1;
         float headroom = 4.5;
-        int interpolation = 0;
+        int interpolation = 4;
+        int highlight = 3;
+        float crop_factor = 1.0f;
+        float focal_length = 35.0f;
     };
 private:
     float _idt[9];
@@ -33,7 +36,7 @@ private:
     GLuint _wf_tex;
     std::vector<uint16_t*> _raw_buffers;
 protected:
-    virtual uint16_t* get_raw_buffer(uint32_t frame, float idt[9], const RawInfo& ri) = 0;
+    virtual uint16_t* raw_buffer(uint32_t frame, float idt[9], const RawInfo& ri) = 0;
     virtual void free_buffer(){};
     RawInfo _rawinfo;
 public:
@@ -41,7 +44,7 @@ public:
     Video_base();
     virtual ~Video_base();
 
-    RawInfo& raw_info(){return _rawinfo;}
+    RawInfo& raw_settings(){return _rawinfo;}
 
     void get_frame_as_gl_texture(uint32_t frame, Texture2D& texture);
     void clear_cache();
@@ -51,24 +54,26 @@ public:
 
 	virtual GLenum gl_pixel_type() = 0;
 	virtual GLenum gl_pixel_format() = 0;
-    virtual std::string get_camera_name() = 0;
-	virtual std::string get_lens_name() = 0;
+    virtual std::string camera_name() = 0;
+	virtual std::string lens_name() = 0;
+    virtual std::string lens_name_by_id() = 0;
 
-	virtual float get_focal_length() = 0;
-	virtual float get_focal_dist() = 0;
-	virtual float get_aperture() = 0;
-    virtual uint32_t get_num_frames() = 0;
+	virtual float focal_length() = 0;
+	virtual float focal_dist() = 0;
+	virtual float aperture() = 0;
+    virtual uint32_t frame_count() = 0;
     virtual	uint32_t raw_resolution_x() = 0;
 	virtual uint32_t raw_resolution_y() = 0;
-    virtual float get_crop_factor() = 0;
-    virtual float get_final_crop_factor() = 0;
-    virtual int get_pixel_binning_x() = 0;
-    virtual int get_pixel_binning_y() = 0;
-    virtual int get_sampling_factor_x() = 0;
-    virtual int get_sampling_factor_y() = 0;
-    virtual uint32_t get_iso() = 0;
-    virtual uint32_t get_shutter() = 0;
-    virtual int get_bpp() = 0;
+    virtual float crop_factor() = 0;
+    virtual float final_crop_factor() = 0;
+    virtual int pixel_binning_x() = 0;
+    virtual int pixel_binning_y() = 0;
+    virtual int sampling_factor_x() = 0;
+    virtual int sampling_factor_y() = 0;
+    virtual uint32_t iso() = 0;
+    virtual uint32_t shutter_speed() = 0;
+    virtual int bpp() = 0;
+    virtual void sensor_resolulion(int& x, int& y) = 0;
 
     void set_lens_params(const std::string camera, const std::string lens, float crop_factor, float aperture, float focus_distance, float focus_length, bool do_expo, bool do_distort);
     void enable_distortion_correction(bool e);

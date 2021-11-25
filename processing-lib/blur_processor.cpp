@@ -61,12 +61,14 @@ Blur_processor::~Blur_processor()
 
 void Blur_processor::process(const Texture2D& in_tex, Texture2D& out_tex, float blur_size)
 {
+	int tw = (out_tex.width() + 15) / 16;
+	int th = (out_tex.height() + 15) / 16;
 	_imp->_program.bind();
-	glBindImageTexture(0, out_tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(0, out_tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, in_tex.get_gltex());
+	glBindTexture(GL_TEXTURE_2D, in_tex.gl_texture());
     glUniform2f(_imp->_radius_uniform, blur_size, 1.0f);
-	glDispatchCompute(out_tex.width() / 16 + 1, out_tex.height() / 16 + 1, 1);
+	glDispatchCompute(tw, th, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_imp->_program.unbind();
 }

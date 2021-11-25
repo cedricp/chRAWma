@@ -1,10 +1,9 @@
 #include "texture2D.h"
 #include <stdio.h>
+#include <stdlib.h>
 
 Texture2D::Texture2D() {
 	_texid = 0;
-	_width = 0;
-	_height = 0;
 }
 
 Texture2D::Texture2D(GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type,
@@ -34,8 +33,6 @@ void Texture2D::_init(GLint level, GLint internalformat, GLsizei width, GLsizei 
 	if (_texid){
 		glDeleteTextures(1, &_texid);
 	}
-	_width = width;
-	_height = height;
 	_internal_format = internalformat;
 	glGenTextures(1, &_texid);
 	glBindTexture(GL_TEXTURE_2D, _texid);
@@ -52,6 +49,30 @@ void Texture2D::clear(GLenum format, GLenum type, void* pixels)
 	glClearTexImage(_texid, 0, format, type, pixels);
 }
 
+void* Texture2D::to_cpu_ram(GLint format, GLenum type)
+{
+	int pixelsize = 0;
+	if (type == GL_FLOAT){
+		pixelsize = sizeof(float);
+	} else 	if (type == GL_UNSIGNED_SHORT || type == GL_HALF_FLOAT){
+		pixelsize = sizeof(short);
+	} else if (type == GL_UNSIGNED_BYTE){
+		pixelsize = sizeof(char);
+	} else if (type == GL_FLOAT || type == GL_UNSIGNED_INT || type == GL_INT){
+		pixelsize = sizeof(short);
+	}
+	if (pixelsize == 0){
+		printf("Texture2D::get_data : Pixel type not supported\n");
+		return NULL;
+	}
+	int w = width();
+	int h = height();
+	
+	void* data = malloc(w*h*pixelsize);
+    glGetTexImage(GL_TEXTURE_2D, 0, format, type, data);
+	return data;
+}
+
 void Texture2D::swap(Texture2D& s)
 {
 	if (_internal_format != s._internal_format){
@@ -59,17 +80,29 @@ void Texture2D::swap(Texture2D& s)
 		return;
 	}
 	int temp_if = _internal_format;
-	int temp_w = _width;
-	int temp_h = _height;
 	GLuint temp_id = _texid;
 
 	_internal_format = s._internal_format;
-	_width = s._width;
-	_height = s._height;
 	_texid = s._texid;
 
 	s._internal_format = temp_if;
-	s._height = temp_h;
-	s._width = temp_w;
 	s._texid = temp_id;
+}
+
+int Texture2D::width() const
+{
+	int w = 0;
+	glBindTexture(GL_TEXTURE_2D, _texid);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return w;
+}
+
+int Texture2D::height() const
+{
+	int h = 0;
+	glBindTexture(GL_TEXTURE_2D, _texid);
+	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	return h;
 }

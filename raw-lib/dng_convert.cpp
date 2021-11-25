@@ -62,12 +62,34 @@ uint16_t* Dng_processor::get_aces_from_file(std::string dng_filename)
 	return result;
 }
 
+void Dng_processor::unpack(uint8_t* buffer, size_t buffersize)
+{
+	int obret = _imp->libraw->open_buffer(buffer, buffersize);
+	if (obret != LIBRAW_SUCCESS){
+		printf("Open buffer error\n");
+	}
+
+	if(_imp->libraw->unpack() != LIBRAW_SUCCESS){
+		printf("Unpack error\n");
+	}
+}
+
+void* Dng_processor::imgdata()
+{
+	if (_imp->libraw)
+		return (void*)&_imp->libraw->imgdata;
+	return NULL;
+}
+
 uint16_t* Dng_processor::get_aces(uint8_t* buffer, size_t buffersize)
 {
 	if (_imp->image){
 		free(_imp->image);
 		_imp->image = NULL;
 	}
+
+	_imp->libraw->recycle();
+
 	/*
 	# - Debayer method
 	--+----------------------
@@ -80,14 +102,9 @@ uint16_t* Dng_processor::get_aces(uint8_t* buffer, size_t buffersize)
 	12 - Modified AHD intepolation (by Anton Petrusevich)
 	*/
 
-	int obret = _imp->libraw->open_buffer(buffer, buffersize);
-	if (obret != LIBRAW_SUCCESS){
-		printf("Open buffer error\n");
-		return NULL;
-	}
-
-	if(_imp->libraw->unpack() != LIBRAW_SUCCESS){
-		printf("Unpack error\n");
+	unpack(buffer, buffersize);
+	if (!buffer){
+		printf("Dng_processor::get_aces : Nothing to unpack\n");
 		return NULL;
 	}
 	
@@ -97,7 +114,7 @@ uint16_t* Dng_processor::get_aces(uint8_t* buffer, size_t buffersize)
 	_imp->libraw->imgdata.params.output_bps = 16;
 	_imp->libraw->imgdata.params.gamm[0] = 1.0;
 	_imp->libraw->imgdata.params.gamm[1] = 1.0;
-	_imp->libraw->imgdata.params.user_qual = _interpolation;
+	_imp->libraw->imgdata.params.user_qual = _interpolation_mode + 1;
 	_imp->libraw->imgdata.params.use_camera_matrix = 1;
 	_imp->libraw->imgdata.params.use_camera_wb = 1;
 	_imp->libraw->imgdata.params.user_mul[0] = _imp->libraw->imgdata.color.cam_mul[0];
@@ -105,8 +122,8 @@ uint16_t* Dng_processor::get_aces(uint8_t* buffer, size_t buffersize)
 	_imp->libraw->imgdata.params.user_mul[2] = _imp->libraw->imgdata.color.cam_mul[2];
 	_imp->libraw->imgdata.params.user_mul[3] = _imp->libraw->imgdata.color.cam_mul[3];
 	_imp->libraw->imgdata.params.use_rawspeed = 1;
-	_imp->libraw->imgdata.params.no_interpolation=0;
-	_imp->libraw->imgdata.params.highlight = 3;
+	_imp->libraw->imgdata.params.no_interpolation= _interpolation_mode == 0;
+	_imp->libraw->imgdata.params.highlight = _highlight_mode;
 
 
 	int err;
@@ -126,17 +143,17 @@ uint16_t* Dng_processor::get_aces(uint8_t* buffer, size_t buffersize)
 	_w = _imp->image->width;
 	_h = _imp->image->height;
 
-	float ratio = ( *(std::max_element ( _imp->libraw->imgdata.color.pre_mul, _imp->libraw->imgdata.color.pre_mul+3)) /
-                    *(std::min_element ( _imp->libraw->imgdata.color.pre_mul, _imp->libraw->imgdata.color.pre_mul+3)) );
-
 	DNGIdt idt = DNGIdt(_imp->libraw->imgdata.rawdata);
 	idt.getDNGIDTMatrix2(_idt.matrix);
 
-	for(int i=0; i < 9; ++i){
-		_idt.matrix[i] *= ratio;
+	if(_highlight_mode > 0){
+		// Fix WB scale
+		float ratio = ( *(std::max_element ( _imp->libraw->imgdata.color.pre_mul, _imp->libraw->imgdata.color.pre_mul+3)) /
+						*(std::min_element ( _imp->libraw->imgdata.color.pre_mul, _imp->libraw->imgdata.color.pre_mul+3)) );
+		for(int i=0; i < 9; ++i){
+			_idt.matrix[i] *= ratio;
+		}
 	}
-
-	_imp->libraw->recycle();
 
 	return (uint16_t*)&_imp->image->data;
 }

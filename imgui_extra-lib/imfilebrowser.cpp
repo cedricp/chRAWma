@@ -490,7 +490,12 @@ namespace imgui_addons
             if(!filtered_files[i]->is_hidden || show_hidden)
             {
                 items++;
-                if(ImGui::Selectable(filtered_files[i]->name.c_str(), selected_idx == static_cast<int>(i) && !is_dir, ImGuiSelectableFlags_AllowDoubleClick))
+                std::string fname;
+                if(filtered_files[i]->is_sequence){
+                    fname += "[]";
+                }
+                fname += filtered_files[i]->name;
+                if(ImGui::Selectable(fname.c_str(), selected_idx == static_cast<int>(i) && !is_dir, ImGuiSelectableFlags_AllowDoubleClick))
                 {
                     //int len = filtered_files[i]->name.length();
                     selected_idx = i;
@@ -502,6 +507,15 @@ namespace imgui_addons
                     if(ImGui::IsMouseDoubleClicked(0))
                     {
                         selected_fn = filtered_files[i]->name;
+                        if (filtered_files[i]->is_sequence){
+                            selected_is_sequence = true;
+                            selected_seq_min = filtered_files[i]->min_seq;
+                            selected_seq_max = filtered_files[i]->max_seq;
+                        } else {
+                            selected_is_sequence = false;
+                            selected_seq_min = 0;
+                            selected_seq_max = 0;
+                        }
                         validate_file = true;
                     }
                 }
@@ -570,6 +584,8 @@ namespace imgui_addons
                 else
                 {
                     selected_fn = std::string( input_fn );
+                    selected_is_sequence = false;
+                    selected_seq_max = selected_seq_min = 0;
                     validate_file = true;
                 }
             }
@@ -1040,6 +1056,41 @@ namespace imgui_addons
                 }
             }
         }
+
+        std::vector<imgui_addons::ImGuiFileBrowser::Info *> seq_filter;
+        for (imgui_addons::ImGuiFileBrowser::Info * current_info : filtered_files)
+        {
+            int framenum;
+            std::string current = current_info->name;
+            size_t fs = current.find_last_of("_")+1;
+            std::string frame = current.substr(fs, 6);
+            if(sscanf(frame.c_str(), "%i", &framenum) < 1){
+                continue;
+            }
+            current.replace(fs, 6, "$$$$$$");
+            bool found = false;
+            for(imgui_addons::ImGuiFileBrowser::Info* seqf : seq_filter){
+                if (seqf->name == current){
+                    if (framenum < seqf->min_seq){
+                        seqf->min_seq = framenum;
+                    }
+                    if (framenum > seqf->max_seq){
+                        seqf->max_seq = framenum;
+                    }
+                    found = true;
+                    break;
+                }
+            }
+
+            if (found){
+                continue;
+            }
+            current_info->name = current;
+            current_info->is_sequence = true;
+            current_info->max_seq = current_info->min_seq = framenum;
+            seq_filter.push_back(current_info);
+        }
+        filtered_files = seq_filter;
     }
 
     void ImGuiFileBrowser::showHelpMarker(std::string desc)

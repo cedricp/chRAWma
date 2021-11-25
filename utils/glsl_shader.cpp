@@ -12,10 +12,14 @@ using namespace render;
 
 Shader::Shader()
 {
+	_shaders[0] = _shaders[1] = 0;
+	_program  = 0;
 }
 
 Shader::Shader(std::string vs, std::string fs, bool isfile)
 {
+	_shaders[0] = _shaders[1] = 0;
+	_program  = 0;
 	if (isfile){
 		init(vs, fs);
 	} else {
@@ -26,6 +30,8 @@ Shader::Shader(std::string vs, std::string fs, bool isfile)
 
 Shader::Shader(std::string cs, bool isfile)
 {
+	_shaders[0] = _shaders[1] = 0;
+	_program  = 0;
 
 	_program = glCreateProgram();
 	if(isfile){
@@ -40,6 +46,9 @@ Shader::Shader(std::string cs, bool isfile)
 
 Shader::~Shader()
 {
+	if (_program == 0){
+		return;
+	}
 	glDetachShader(_program, _shaders[0]);
 	glDeleteShader(_shaders[0]);
 

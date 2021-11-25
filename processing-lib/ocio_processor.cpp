@@ -84,13 +84,17 @@ void OCIO_processor::process(const Texture2D& tex, float* pre_color_matrix)
 	float vals[9] = {1.0f,0.0f, 0.0f,
 					0.0f, 1.0f, 0.0f,
 					0.0f, 0.0f, 1.0f};
+
+	int tw = (tex.width() + 15) / 16;
+	int th = (tex.height() + 15) / 16;
+	
 	GLuint loc = _imp->_program.getUniformLocation("color_mat");
 	_imp->_program.bind();
 	glUniformMatrix3fv(loc, 1, false, pre_color_matrix ? pre_color_matrix : vals);
-	glBindImageTexture(0, tex.get_gltex(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
+	glBindImageTexture(0, tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_3D,_imp-> _lut_texture);
-	glDispatchCompute(tex.width() / 16 + 1, tex.height() / 16 + 1, 1);
+	glDispatchCompute(tw, th, 1);
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 	_imp->_program.unbind();
 }
