@@ -49,7 +49,11 @@ public:
 template <GLenum iformat>
 class Texture_ : public Texture2D
 {
+	// Forbid copy, you must use reference only to avoid garbage
+	Texture_(const Texture_& t){}
+	Texture_& operator = (const Texture_& t){return *this;}
 public:
+	// ---------------------------------------------
 	Texture_(GLenum format, GLenum type, GLsizei width, GLsizei height,  const void *pixels = NULL, GLint border = 0,
 			 GLint wrap_s = GL_CLAMP_TO_EDGE, GLint wrap_t = GL_CLAMP_TO_EDGE, GLint min_filter = GL_LINEAR, GLint max_filter = GL_LINEAR) : Texture2D(0, iformat, width, height,
 			 border, format, type, wrap_s, wrap_t, min_filter, max_filter, pixels)

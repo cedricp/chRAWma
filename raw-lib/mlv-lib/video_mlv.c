@@ -483,7 +483,7 @@ static int save_mapp(mlvObject_t * video)
     FILE* mappf = fopen(mapp_filename, "wb");
     if (!mappf)
     {
-        DEBUG( printf("Could not open %s\n\n", mapp_filename); )
+        DEBUG( printf("Could not open mapp : %s\n\n", mapp_filename); )
         free(mapp_buf);
         return 1;
     }
@@ -527,7 +527,7 @@ static int load_mapp(mlvObject_t * video)
     FILE* mappf = fopen(mapp_filename, "rb");
     if (!mappf)
     {
-        DEBUG( printf("Could not open %s\n\n", mapp_filename); )
+        DEBUG( printf("Could not open mapp : %s\n\n", mapp_filename); )
         return 1;
     }
 

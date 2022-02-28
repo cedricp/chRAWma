@@ -16,6 +16,13 @@
 
 #include "texture2D.h"
 
+#include <OpenEXR/ImfHeader.h>
+#include <OpenEXR/ImfRgbaFile.h>
+#include <OpenEXR/ImfStringAttribute.h>
+
+using namespace Imf_2_3;
+using namespace Imath_2_3;
+using namespace Iex_2_3;
 
 class ScopeWidget : public Widget
 {
@@ -45,7 +52,7 @@ public:
       if(ImGui::Checkbox("Parade", &_parade)) _wfmonitor->set_parade(_parade);
       ImGui::SameLine();
       ImGui::SetNextItemWidth(150);
-      if(ImGui::SliderFloat("Intensity", &_intensity, 0.0f, 1.0f)) _wfmonitor->set_intensity(_intensity);
+      if(ImGui::SliderFloat("Intensity", &_intensity, 0.1f, 4.0f)) _wfmonitor->set_intensity(_intensity);
       ImGui::SameLine();
       ImGui::SetNextItemWidth(150);
       if(ImGui::SliderFloat("Scale", &_scale, 0.0625f, 1.0f)) _wfmonitor->set_scale(_scale);
@@ -68,12 +75,11 @@ class VideoWidget : public Widget
 public:
 	//Mlv_video* _video;
    Video_base* _video;
-	VideoWidget(Window_SDL* win, ScopeWidget* scope) : Widget(win, "TestWidget"), _video(NULL), _scope(scope)
+	VideoWidget(Window_SDL* win) : Widget(win, "TestWidget"), _video(NULL), _scope(NULL)
 	{
 
       _video = new Mlv_video("/storage1/videos/MISC/MLV/M28-1415.MLV");
       //_video = new Dng_video("/storage/VIDEO/MISC/RAW/VIDEO_DNG/M02-1705_1_2021-05-02_0001_C0000/M02-1705_1_2021-05-02_0001_C0000_000000.dng");
-		//set_maximized(true);
 		set_position(50, 50);
 		set_size(500,500);
 		set_resizable(false);
@@ -87,13 +93,17 @@ public:
       _displays = OCIO_processor::get_displays();
 
 		_tex = new TextureRGBA16F(GL_RGB, GL_UNSIGNED_SHORT, w, h, NULL);
-      _scope->update_texture(_tex);
 
       reload();
 	}
 
    TextureRGBA16F* get_as_texture(){
       return _tex;
+   }
+
+   void set_scope(ScopeWidget* scope){
+      _scope = scope;
+      _scope->update_texture(_tex);
    }
 
    void reload(){
@@ -110,6 +120,27 @@ public:
 
 	~VideoWidget(){
 	}
+      
+   void write_exr(std::string name)
+   {
+      uint16_t width     = _video->raw_resolution_x();
+      uint16_t height    = _video->raw_resolution_y();
+
+      Rgba *halfIn = (Rgba*)_tex->to_cpu_ram(GL_RGB, GL_HALF_FLOAT);
+
+      Compression compression_method = ZIP_COMPRESSION;
+      Header header (width, height, 1, V2f (0, 0), 1, INCREASING_Y, compression_method);
+/*       for (auto &md : _md){
+         header.insert(md.first.c_str(), Imf::StringAttribute(md.second.c_str()));
+      } */
+      header.insert("Comment", Imf::StringAttribute("Converted with chRAWma"));
+      header.insert("Colorspace", Imf::StringAttribute("ACES2065-1 (AP0)"));
+      header.insert("Gamma", Imf::StringAttribute("Linear"));
+      RgbaOutputFile file (name.c_str(), header, WRITE_RGB);
+      file.setFrameBuffer (halfIn, 1, width);
+      file.writePixels (height);
+      free(halfIn);
+   }
 
 	void draw() override {
       ImVec2 winsize = size();
@@ -123,7 +154,7 @@ public:
 		if(open)ImGui::OpenPopup("Open File");
 		if(_fbw.showFileDialogPopup("Open File", imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(600, 300), ".mlv,.dng")){
          _cf = 0;
-         _scope->update_texture(NULL);
+         if (_scope) _scope->update_texture(NULL);
          delete _video;
          delete _tex;
          _video = new Mlv_video(_fbw.selected_path);
@@ -133,11 +164,11 @@ public:
 		   int h = _video->raw_resolution_y();
 		   _tex = new TextureRGBA16F(GL_RGB, GL_UNSIGNED_SHORT, w, h, NULL);
          _video->set_dirty();
-         _scope->update_texture(_tex);
       }
 
       if (_video->need_refresh()){
-         _video->get_frame_as_gl_texture(_cf, *_tex);
+         reload();
+         if (_scope) _scope->update_texture(_tex);
       }
 
 		float ratio = (float)_tex->height() / (float)_tex->width();
@@ -153,7 +184,6 @@ public:
 class RawInfoWidget : public Widget
 {
    VideoWidget* _video;
-   ScopeWidget* _scope;
    int _sel_camera_model  = 0;
    int _sel_lens_model  = 0;
    std::vector<std::string> _camera_models;
@@ -162,7 +192,7 @@ class RawInfoWidget : public Widget
    float _min_focal, _max_focal;
    bool  _use_lens_id = false;
 public:
-   RawInfoWidget(Window_SDL* win, VideoWidget* video, ScopeWidget* scope) : Widget(win, "RawInfo"), _video(video), _scope(scope)
+   RawInfoWidget(Window_SDL* win, VideoWidget* video) : Widget(win, "RawInfo"), _video(video)
    {
 	   set_size(400,500);
       set_resizable(false);
@@ -524,9 +554,11 @@ class MainWindow : public Window_SDL
    public:
       MainWindow() : Window_SDL("Chrawma", 1200, 900)
       {
+         // Order matters here
+         _videowid = new VideoWidget(this);
+         _rawinfo = new RawInfoWidget(this, _videowid);
          _scopewid = new ScopeWidget(this);
-         _videowid = new VideoWidget(this, _scopewid);
-         _rawinfo = new RawInfoWidget(this, _videowid, _scopewid);
+         _videowid->set_scope(_scopewid);
      }
 
       virtual ~MainWindow(){

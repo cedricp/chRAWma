@@ -11,6 +11,7 @@ FIND_PACKAGE(OpenColorIO REQUIRED)
 FIND_PACKAGE(Eigen3 REQUIRED)
 FIND_PACKAGE(Ceres REQUIRED)
 FIND_PACKAGE(Lensfun REQUIRED)
+FIND_PACKAGE(OpenEXR REQUIRED)
 
 if (OPENMP_FOUND)
     SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -34,7 +35,7 @@ ADD_SUBDIRECTORY(scope-lib)
 ADD_SUBDIRECTORY(processing-lib)
 ADD_SUBDIRECTORY(utils)
 
-SET(EXT_LIBS GL GLEW pthread ${SDL2_LIBRARIES} ${LibRaw_LIBRARIES} ${OPENCOLORIO_LIBRARIES} ${LensFun_LIBRARIES} )
+SET(EXT_LIBS GL GLEW pthread ${SDL2_LIBRARIES} ${LibRaw_LIBRARIES} ${OPENCOLORIO_LIBRARIES} ${LensFun_LIBRARIES} ${OPENEXR_LIBRARIES})
 
 ADD_EXECUTABLE(chrawma.bin main.cpp)
 TARGET_LINK_LIBRARIES(chrawma.bin imgui_extra_static imgui_static rawlib_static processing_static mlvlib_static scopes_static utils_static ${EXT_LIBS})
