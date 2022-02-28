@@ -10,6 +10,7 @@
 #include "socket_notifier.h"
 
 #include "scope-lib/waveform_monitor.h"
+#include "scope-lib/vector_monitor.h"
 #include "processing-lib/lens_correction.h"
 #include "raw-lib/mlv_video.h"
 #include "raw-lib/dng_video.h"
@@ -24,6 +25,42 @@ using namespace Imf_2_3;
 using namespace Imath_2_3;
 using namespace Iex_2_3;
 
+class VectorscopeWidget : public Widget
+{
+   vectorMonitor* _vsmonitor;
+   TextureRGBA16F* _video_tex;
+   bool _parade = true;
+   float _intensity = 1, _scale = 1;
+public:
+	VectorscopeWidget(Window_SDL* win) : Widget(win, "VScopeWidget")
+	{
+      _video_tex = NULL;
+      _vsmonitor = new vectorMonitor(256,256);
+      set_movable(false);
+		set_titlebar(false);
+      set_resizable(false);
+   }
+
+   ~VectorscopeWidget(){
+      delete _vsmonitor;
+	}
+
+   void update_texture(TextureRGBA16F* v){
+      _video_tex = v;
+   }
+
+   void draw() override {
+      if (_video_tex == NULL) return;
+      ImGui::SetNextItemWidth(150);
+      if(ImGui::SliderFloat("Intensity", &_intensity, 0.1f, 4.0f)) _vsmonitor->set_intensity(_intensity);
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(150);
+      if(ImGui::SliderFloat("Scale", &_scale, 0.0625f, 1.0f)) _vsmonitor->set_scale(_scale);
+      GLuint tex = _vsmonitor->compute(*_video_tex).gl_texture();
+      ImGui::Image((void*)(unsigned long)tex, size());
+   }
+};
+
 class ScopeWidget : public Widget
 {
    waveformMonitor* _wfmonitor;
@@ -37,6 +74,7 @@ public:
       _wfmonitor = new waveformMonitor(512,256);
       set_movable(false);
 		set_titlebar(false);
+      set_resizable(false);
    }
 
    ~ScopeWidget(){
@@ -65,6 +103,7 @@ class VideoWidget : public Widget
 {
 	TextureRGBA16F* _tex;
    ScopeWidget* _scope;
+   VectorscopeWidget* _vscope;
 
 	int _cf=0;
 	float _idt_mat[9];
@@ -75,10 +114,10 @@ class VideoWidget : public Widget
 public:
 	//Mlv_video* _video;
    Video_base* _video;
-	VideoWidget(Window_SDL* win) : Widget(win, "TestWidget"), _video(NULL), _scope(NULL)
+	VideoWidget(Window_SDL* win) : Widget(win, "TestWidget"), _video(NULL), _scope(NULL), _vscope(NULL)
 	{
 
-      _video = new Mlv_video("/storage1/videos/MISC/MLV/M28-1415.MLV");
+      _video = new Mlv_video("/storage/VIDEO/MISC/MLV/M04-1713.MLV");
       //_video = new Dng_video("/storage/VIDEO/MISC/RAW/VIDEO_DNG/M02-1705_1_2021-05-02_0001_C0000/M02-1705_1_2021-05-02_0001_C0000_000000.dng");
 		set_position(50, 50);
 		set_size(500,500);
@@ -101,9 +140,11 @@ public:
       return _tex;
    }
 
-   void set_scope(ScopeWidget* scope){
+   void set_scope(ScopeWidget* scope, VectorscopeWidget* vscope){
       _scope = scope;
+      _vscope = vscope;
       _scope->update_texture(_tex);
+      _vscope->update_texture(_tex);
    }
 
    void reload(){
@@ -155,6 +196,7 @@ public:
 		if(_fbw.showFileDialogPopup("Open File", imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(600, 300), ".mlv,.dng")){
          _cf = 0;
          if (_scope) _scope->update_texture(NULL);
+         if (_vscope) _vscope->update_texture(NULL);
          delete _video;
          delete _tex;
          _video = new Mlv_video(_fbw.selected_path);
@@ -169,6 +211,7 @@ public:
       if (_video->need_refresh()){
          reload();
          if (_scope) _scope->update_texture(_tex);
+         if (_vscope) _vscope->update_texture(_tex);
       }
 
 		float ratio = (float)_tex->height() / (float)_tex->width();
@@ -549,6 +592,7 @@ public:
 class MainWindow : public Window_SDL
 {
    ScopeWidget* _scopewid;
+   VectorscopeWidget* _vsmonitor;
 	VideoWidget* _videowid;
    RawInfoWidget* _rawinfo;
    public:
@@ -558,7 +602,8 @@ class MainWindow : public Window_SDL
          _videowid = new VideoWidget(this);
          _rawinfo = new RawInfoWidget(this, _videowid);
          _scopewid = new ScopeWidget(this);
-         _videowid->set_scope(_scopewid);
+         _vsmonitor = new VectorscopeWidget(this);
+         _videowid->set_scope(_scopewid, _vsmonitor);
      }
 
       virtual ~MainWindow(){
@@ -585,6 +630,9 @@ class MainWindow : public Window_SDL
          _scopewid->set_position(0, videoh);
          _scopewid->set_size(scopew, scopeh);
 
+         _vsmonitor->set_position(scopew, videoh);
+         _vsmonitor->set_size(scopeh, scopeh);
+
          _rawinfo->set_position(videow, 0);
          _rawinfo->set_size(infow, videoh);
 
@@ -607,10 +655,7 @@ int main(int, char**)
    ImGui::GetStyle().GrabRounding = 4.0;
    ImGui::GetStyle().GrabMinSize = 4.0; 
 	window->set_minimum_window_size(800,600);
-/*    ScopeWidget* scopewid = new ScopeWidget(window);
-	VideoWidget* testwid = new VideoWidget(window, scopewid);
-   RawInfoWidget* rawinfo = new RawInfoWidget(window, testwid, scopewid); */
-	ImFont* font = app->load_font("/storage1/documents/FONTS/DroidSans.ttf", 16.f);
+	ImFont* font = app->load_font("/home/cedric/Documents/FONTS/DroidSans.ttf", 16.f);
    app->add_window(window);
 	app->run();
    return 0;
