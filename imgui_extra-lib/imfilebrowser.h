@@ -17,7 +17,8 @@ namespace imgui_addons
             {
                 SELECT, //Select Directory Mode
                 OPEN,   //Open File mode
-                SAVE    //Save File mode.
+                SAVE,    //Save File mode.
+                SAVE_OPEN
             };
 
             /* Use this to show an open file dialog. The function takes label for the window,
@@ -31,6 +32,7 @@ namespace imgui_addons
              * Should only be accessed when above functions return true else may contain garbage.
              */
             bool selected_is_sequence;
+            std::vector<std::string> selected_seq;
             int selected_seq_min, selected_seq_max;
             std::string selected_fn;
             std::string selected_path;
@@ -46,6 +48,7 @@ namespace imgui_addons
                 bool is_hidden;
                 bool is_sequence;
                 int min_seq, max_seq;
+                 std::vector<std::string> seq_files;
             };
 
             //Enum used as bit flags.

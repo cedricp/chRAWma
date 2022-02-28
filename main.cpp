@@ -16,65 +16,127 @@
 
 #include "texture2D.h"
 
-class TestWidget : public Widget
+
+class ScopeWidget : public Widget
 {
-	waveformMonitor _wfm;
+   waveformMonitor* _wfmonitor;
+   TextureRGBA16F* _video_tex;
+   bool _parade = true;
+   float _intensity = 1, _scale = 1;
+public:
+	ScopeWidget(Window_SDL* win) : Widget(win, "ScopeWidget")
+	{
+      _video_tex = NULL;
+      _wfmonitor = new waveformMonitor(512,256);
+      set_movable(false);
+		set_titlebar(false);
+   }
+
+   ~ScopeWidget(){
+      delete _wfmonitor;
+	}
+
+   void update_texture(TextureRGBA16F* v){
+      _video_tex = v;
+   }
+
+   void draw() override {
+      if (_video_tex == NULL) return;
+      if(ImGui::Checkbox("Parade", &_parade)) _wfmonitor->set_parade(_parade);
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(150);
+      if(ImGui::SliderFloat("Intensity", &_intensity, 0.0f, 1.0f)) _wfmonitor->set_intensity(_intensity);
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(150);
+      if(ImGui::SliderFloat("Scale", &_scale, 0.0625f, 1.0f)) _wfmonitor->set_scale(_scale);
+      GLuint tex = _wfmonitor->compute(*_video_tex).gl_texture();
+      ImGui::Image((void*)(unsigned long)tex, size());
+   }
+};
+
+class VideoWidget : public Widget
+{
 	TextureRGBA16F* _tex;
+   ScopeWidget* _scope;
 
 	int _cf=0;
 	float _idt_mat[9];
 	Lens_correction *_lc;
 	imgui_addons::ImGuiFileBrowser _fbw;
+   std::vector<std::string> _displays;
+   int _selected_display = 0;
 public:
 	//Mlv_video* _video;
-   Dng_video* _video;
-	TestWidget(Window_SDL* win) : Widget(win, "TestWidget"), _wfm(256,256), _video(NULL)
+   Video_base* _video;
+	VideoWidget(Window_SDL* win, ScopeWidget* scope) : Widget(win, "TestWidget"), _video(NULL), _scope(scope)
 	{
 
-      //_video = new Mlv_video("/storage/VIDEO/MISC/MLV/M18-1008.MLV");
-      _video = new Dng_video("/storage/VIDEO/MISC/RAW/VIDEO_DNG/M02-1705_1_2021-05-02_0001_C0000/M02-1705_1_2021-05-02_0001_C0000_000000.dng");
+      _video = new Mlv_video("/storage1/videos/MISC/MLV/M28-1415.MLV");
+      //_video = new Dng_video("/storage/VIDEO/MISC/RAW/VIDEO_DNG/M02-1705_1_2021-05-02_0001_C0000/M02-1705_1_2021-05-02_0001_C0000_000000.dng");
 		//set_maximized(true);
 		set_position(50, 50);
 		set_size(500,500);
-		//set_resizable(false);
+		set_resizable(false);
+      set_movable(false);
 		set_titlebar(false);
+      set_scrollbar(false);
 		uint32_t size;
 		int w = _video->raw_resolution_x();
 		int h = _video->raw_resolution_y();
 
+      _displays = OCIO_processor::get_displays();
+
 		_tex = new TextureRGBA16F(GL_RGB, GL_UNSIGNED_SHORT, w, h, NULL);
+      _scope->update_texture(_tex);
 
       reload();
 	}
+
+   TextureRGBA16F* get_as_texture(){
+      return _tex;
+   }
 
    void reload(){
       _video->get_frame_as_gl_texture(_cf, *_tex);
    }
 
-	~TestWidget(){
+   int get_width(){
+      return _tex->width();
+   }
+
+   int current_frame(){
+      return _cf;
+   }
+
+	~VideoWidget(){
 	}
 
 	void draw() override {
-
-      if (_video->need_refresh()){
-         _video->get_frame_as_gl_texture(_cf, *_tex);
-      }
-
-      ImVec2 winsize = ImGui::GetContentRegionAvail();
+      ImVec2 winsize = size();
 		bool open = ImGui::Button("Test", ImVec2(100,20));
+      ImGui::SameLine();
+      if (ImGui::Combo("Display", &_selected_display, vector_getter, static_cast<void*>(&_displays), _displays.size())){
+         _video->set_display(_displays[_selected_display]);
+      }
 
 		// Same name for openpopup and showFileDialog....
 		if(open)ImGui::OpenPopup("Open File");
 		if(_fbw.showFileDialogPopup("Open File", imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(600, 300), ".mlv,.dng")){
          _cf = 0;
+         _scope->update_texture(NULL);
          delete _video;
          delete _tex;
-         //_video = new Mlv_video(_fbw.selected_path);
-         _video = new Dng_video(_fbw.selected_path);
+         _video = new Mlv_video(_fbw.selected_path);
+         //_video = new Dng_video(_fbw.selected_path);
          
          int w = _video->raw_resolution_x();
 		   int h = _video->raw_resolution_y();
 		   _tex = new TextureRGBA16F(GL_RGB, GL_UNSIGNED_SHORT, w, h, NULL);
+         _video->set_dirty();
+         _scope->update_texture(_tex);
+      }
+
+      if (_video->need_refresh()){
          _video->get_frame_as_gl_texture(_cf, *_tex);
       }
 
@@ -85,13 +147,13 @@ public:
       if(ImGui::SliderInt("##frame", &_cf, 0, _video->frame_count() - 1, NULL)){
          _video->set_dirty();
       }
-      ImGui::Image((void*)(unsigned long)_video->get_waveform_texture(), ImVec2(512, 256));
 	}
 };
 
 class RawInfoWidget : public Widget
 {
-   TestWidget* _video;
+   VideoWidget* _video;
+   ScopeWidget* _scope;
    int _sel_camera_model  = 0;
    int _sel_lens_model  = 0;
    std::vector<std::string> _camera_models;
@@ -100,9 +162,12 @@ class RawInfoWidget : public Widget
    float _min_focal, _max_focal;
    bool  _use_lens_id = false;
 public:
-   RawInfoWidget(Window_SDL* win, TestWidget* video) : Widget(win, "RawInfo"), _video(video)
+   RawInfoWidget(Window_SDL* win, VideoWidget* video, ScopeWidget* scope) : Widget(win, "RawInfo"), _video(video), _scope(scope)
    {
 	   set_size(400,500);
+      set_resizable(false);
+      set_movable(false);
+      set_scrollbar(false);
       set_titlebar(false);
       ChildWidget* test = new ChildWidget(this, "Test1", false, 50,0);
       ChildWidget* test2 = new ChildWidget(this, "Test2", true);
@@ -171,7 +236,7 @@ public:
 
    void draw() override {
       
-      if (ImGui::BeginTabBar("MyTabBar", ImGuiTabBarFlags_None))
+      if (ImGui::BeginTabBar("RawTabBar", ImGuiTabBarFlags_None))
       {
          if (ImGui::BeginTabItem("Raw info"))
          {
@@ -207,7 +272,7 @@ public:
          {
             bool raw_changed = false;
             static int tweak_color_temp;
-            if (ImGui::CollapsingHeader("Raw settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (_video->_video->file_type() == Video_base::RAW_MLV && ImGui::CollapsingHeader("Raw settings", ImGuiTreeNodeFlags_DefaultOpen)) {
                ImGui::BeginTable("Tweak table", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerV);
 
                ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed,   0.0f, 0);
@@ -228,10 +293,9 @@ public:
                ImGui::TableNextColumn();ImGui::Text("Color temperature");
                ImGui::TableNextColumn();
 
-
                //ImGui::SetNextItemWidth(200);
                ImGui::BeginGroup();
-               ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x/2 - 60);
+               ImGui::PushItemWidth(width()/2 - 60);
                raw_changed |= ImGui::Combo("##colortempmode", &tweak_color_temp, "[Auto]\0[User]\0");
                if(raw_changed && tweak_color_temp > 0){
                   if (_video->_video->raw_settings().temperature == -1){
@@ -243,7 +307,7 @@ public:
                }
 
                if (tweak_color_temp > 0){
-                  ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x/2);
+                  ImGui::PushItemWidth(width()/2);
                   ImGui::SameLine(); raw_changed |= ImGui::SliderInt("Kelvin", &_video->_video->raw_settings().temperature, 2500, 8000, NULL);
                }
                ImGui::EndGroup();
@@ -255,26 +319,70 @@ public:
                ImGui::EndTable();
             }
 
-            raw_changed = false;
-            // ACES Table
-            ImGui::BeginTable("ACES table", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerV);
+             if (_video->_video->file_type() == Video_base::RAW_MLV && ImGui::CollapsingHeader("Dark frame settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                  raw_changed = false;
+                  static int df_in, df_out;
+                  ImGui::BeginTable("Darkframe table", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerV);
 
-            ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed,   0.0f, 0);
-            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch,   0.0f, 1);
+                  ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed,   0.0f, 0);
+                  ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch,   0.0f, 1);
 
-            ImGui::TableNextColumn();ImGui::Text("Headroom");
-            ImGui::TableNextColumn();raw_changed |= ImGui::SliderFloat("##Headroom", &_video->_video->raw_settings().headroom, 1.0f, 6.5f, NULL);
+                  ImGui::TableNextColumn();ImGui::Text("Darkframe file");
+                  ImGui::TableNextColumn();
+                  if(ImGui::Button("...")){
+                        ImGui::OpenPopup("Open darkframe file");
+                  }
+                  if(_fbw.showFileDialogPopup("Open darkframe file", imgui_addons::ImGuiFileBrowser::DialogMode::SAVE, ImVec2(600, 300), ".mlv")){
+                     _video->_video->raw_settings().darkframe_file = _fbw.selected_path;
+                     raw_changed = true;
+                  }
+                  ImGui::SameLine();ImGui::Text(_video->_video->raw_settings().darkframe_file.c_str());
+                  if(!_video->_video->raw_settings().darkframe_file.empty()){
+                     ImGui::TableNextColumn();ImGui::Text("Enable");
+                     ImGui::TableNextColumn();raw_changed |= ImGui::Checkbox("##darkfame_enable", &_video->_video->raw_settings().darkframe_enable);
+                  }
+                  ImGui::TableNextColumn();ImGui::Text("Darkframe generation");
+                  ImGui::TableNextColumn();
+                  ImGui::SliderInt("In", &df_in, 0, _video->_video->frame_count() - 1, NULL);ImGui::SameLine();if(ImGui::Button("<>##dfin")) df_in = _video->current_frame();
+                  ImGui::SliderInt("Out", &df_out, 0, _video->_video->frame_count() - 1, NULL);ImGui::SameLine();if(ImGui::Button("<>##dfout")) df_out = _video->current_frame();
+                  if (ImGui::Button("Generate")){
+                     ((Mlv_video*)(_video->_video))->generate_darkframe(df_in, df_out);
+                  }
+                  if (raw_changed){
+                     _video->_video->clear_cache();
+                     _video->_video->set_dirty();
+                  }
+                  ImGui::EndTable(); 
+             }
 
-            ImGui::TableNextColumn();ImGui::Text("Blur");
-            ImGui::TableNextColumn();raw_changed |= ImGui::SliderFloat("##Blur", &_video->_video->_blur, 1.0f, 20.0f, NULL);
 
+            ImGui::EndTabItem();
+         }
 
-            if (raw_changed){
-               _video->_video->set_dirty();
+         if (ImGui::BeginTabItem("ACES"))
+         {
+            if (ImGui::CollapsingHeader("ACES settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+               bool raw_changed = false;
+               // ACES Table
+               ImGui::BeginTable("ACES table", 2, ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersInnerV);
+
+               ImGui::TableSetupColumn("Key", ImGuiTableColumnFlags_DefaultSort | ImGuiTableColumnFlags_WidthFixed,   0.0f, 0);
+               ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch,   0.0f, 1);
+
+               ImGui::TableNextColumn();ImGui::Text("Headroom");
+               ImGui::TableNextColumn();raw_changed |= ImGui::SliderFloat("##Headroom", &_video->_video->raw_settings().headroom, 1.0f, 6.5f, NULL);
+
+               ImGui::TableNextColumn();ImGui::Text("Blur");
+               ImGui::TableNextColumn();raw_changed |= ImGui::SliderFloat("##Blur", &_video->_video->_blur, 1.0f, 20.0f, NULL);
+            
+               ImGui::TableNextColumn();ImGui::Text("Blur H/V ratio");
+               ImGui::TableNextColumn();raw_changed |= ImGui::SliderFloat("##Blur_hv", &_video->_video->_blur_hv, 0.0f, 1.0f, NULL);
+
+               if (raw_changed){
+                  _video->_video->set_dirty();
+               }
+               ImGui::EndTable();   
             }
-
-            ImGui::EndTable();
-
             ImGui::EndTabItem();
          }
 
@@ -282,6 +390,7 @@ public:
          {
             static bool correct_expo = false;
             static bool correct_distort = false;
+            static float lens_scale = 1.0f;
             bool lens_expo_changed = false;
             bool lens_distort_changed = false;
             bool lens_changed = false;
@@ -341,6 +450,9 @@ public:
                ImGui::TableNextColumn();ImGui::Text("Crop factor");
                ImGui::TableNextColumn();lens_changed |= ImGui::SliderFloat("##cropfactor", &_video->_video->raw_settings().crop_factor, 1.0f, 20.0f, NULL);
 
+               ImGui::TableNextColumn();ImGui::Text("Scale");
+               ImGui::TableNextColumn();lens_changed |= ImGui::SliderFloat("##lenscale", &lens_scale, 0.5f, 2.0f, NULL);
+
                if (fabs(_min_focal - _max_focal) > 1.0f){
                   ImGui::TableNextColumn();ImGui::Text("Focal length");
                   ImGui::TableNextColumn();lens_changed |= ImGui::SliderFloat("##focallen", &_video->_video->raw_settings().focal_length, _min_focal, _max_focal, NULL);
@@ -350,7 +462,7 @@ public:
             ImGui::EndTabItem();
 
             if (lens_changed || lens_expo_changed || lens_distort_changed){
-               _video->_video->set_lens_params(get_selected_camera(), get_selected_lens(), _video->_video->raw_settings().crop_factor,  _video->_video->aperture(), _video->_video->focal_dist(), _video->_video->raw_settings().focal_length, correct_expo, correct_distort);
+               _video->_video->set_lens_params(get_selected_camera(), get_selected_lens(), _video->_video->raw_settings().crop_factor,  _video->_video->aperture(), _video->_video->focal_dist(), _video->_video->raw_settings().focal_length, lens_scale, correct_expo, correct_distort);
             }
          }
 
@@ -372,7 +484,6 @@ public:
                }
                if(_fbw.showFileDialogPopup("Open File", imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(600, 300), ".cube")){
                   _underlying_window->set_monitor_lut(_fbw.selected_path);
-
                }
             }
             ImGui::SameLine();if (!_underlying_window->monitor_lut_filename().empty() && ImGui::Button("X")){
@@ -405,6 +516,50 @@ public:
    }
 };
 
+class MainWindow : public Window_SDL
+{
+   ScopeWidget* _scopewid;
+	VideoWidget* _videowid;
+   RawInfoWidget* _rawinfo;
+   public:
+      MainWindow() : Window_SDL("Chrawma", 1200, 900)
+      {
+         _scopewid = new ScopeWidget(this);
+         _videowid = new VideoWidget(this, _scopewid);
+         _rawinfo = new RawInfoWidget(this, _videowid, _scopewid);
+     }
+
+      virtual ~MainWindow(){
+
+      }
+
+      void draw() override {
+         int w,h;
+         get_window_size(w,h);
+
+         const int scopeh = 300;
+         const int scopew = 600;
+
+         const int infow = 400;
+
+         const int videoh = h - scopeh;
+         const int videow = w - infow;
+
+         const int infoh = videoh;
+
+         _videowid->set_position(0,0);
+         _videowid->set_size(videow, videoh);
+
+         _scopewid->set_position(0, videoh);
+         _scopewid->set_size(scopew, scopeh);
+
+         _rawinfo->set_position(videow, 0);
+         _rawinfo->set_size(infow, videoh);
+
+         Window_SDL::draw();
+     }
+};
+
 // Main code
 int main(int, char**)
 {
@@ -413,16 +568,18 @@ int main(int, char**)
 	std::string ocio_path = app->get_str_config("APP_PATH") + "/../aces-config/config.ocio";
 	setenv("OCIO", ocio_path.c_str(), 1);
 	setenv("PIXELMAPSDIR", fpm_path.c_str(), 1);
-	Window_SDL* window2 = app->create_new_window("Chrawma", 1200, 900);
+	Window_SDL* window = new MainWindow;//->create_new_window("Chrawma", 1200, 900);
    ImGui::GetStyle().FrameRounding = 5.0;
    ImGui::GetStyle().ChildRounding = 5.0;
    ImGui::GetStyle().WindowRounding= 4.0;
    ImGui::GetStyle().GrabRounding = 4.0;
    ImGui::GetStyle().GrabMinSize = 4.0; 
-	window2->set_minimum_window_size(800,600);
-	TestWidget* testwid = new TestWidget(window2);
-   RawInfoWidget* rawinfo = new RawInfoWidget(window2, testwid);
-	ImFont* font = app->load_font("/home/cedric/Documents/FONTS/DroidSans.ttf", 16.f);
+	window->set_minimum_window_size(800,600);
+/*    ScopeWidget* scopewid = new ScopeWidget(window);
+	VideoWidget* testwid = new VideoWidget(window, scopewid);
+   RawInfoWidget* rawinfo = new RawInfoWidget(window, testwid, scopewid); */
+	ImFont* font = app->load_font("/storage1/documents/FONTS/DroidSans.ttf", 16.f);
+   app->add_window(window);
 	app->run();
    return 0;
 }

@@ -732,7 +732,7 @@ vector < vector < double > > DNGIdt::getDNGIDTMatrix ( ) {
 void DNGIdt::getDNGIDTMatrix2 (float* mat)
 {
 	vector < vector < double > > chadMtx = getDNGCATMatrix ( );
-	vector < double > XYZ_acesrgb (9), CAT (9), ap0toap1(9);
+	vector < double > XYZ_acesrgb (9), CAT (9);
 	FORIJ ( 3, 3 ) {
 		XYZ_acesrgb[i*3+j] = XYZ_acesrgb_3[i][j];
 		CAT[i*3+j] = chadMtx[i][j];

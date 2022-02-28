@@ -4,7 +4,7 @@
 #include "glsl_shader.h"
 
 struct scale_impl{
-	render::Shader _program;
+	render::Shader _shader;
 };
 
 const char* compute_scale_shader = "#version 440\n"
@@ -24,7 +24,7 @@ Scale_processor::Scale_processor()
 {
     _imp = new scale_impl;
     std::string shader = compute_scale_shader;
-    _imp->_program.init_from_string(shader);
+    _imp->_shader.init_from_string(shader);
 }
 
 Scale_processor::~Scale_processor()
@@ -37,11 +37,12 @@ void Scale_processor::process(const Texture2D& in_tex, Texture2D& out_tex)
 	int tw = (out_tex.width() + 15) / 16;
 	int th = (out_tex.height() + 15) / 16;
 
-	_imp->_program.bind();
-	glBindImageTexture(0, out_tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, in_tex.gl_texture());
-	glDispatchCompute(tw, th, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-	_imp->_program.unbind();
+	_imp->_shader.bind();
+	out_tex.bindImageTexture(0);
+	in_tex.bindTexture(1);
+
+	_imp->_shader.dispatchCompute(tw, th);
+	_imp->_shader.enableMemoryBarrier();
+	
+	_imp->_shader.unbind();
 }

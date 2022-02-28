@@ -42,4 +42,6 @@ public:
 
 	virtual GLenum gl_pixel_type() {return GL_UNSIGNED_SHORT;}
 	virtual GLenum gl_pixel_format() {return GL_RGB;}
+	Raw_type file_type() override {return RAW_MLV;}
+	bool generate_darkframe(int in, int out);
 };

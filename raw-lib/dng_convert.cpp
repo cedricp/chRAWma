@@ -117,14 +117,13 @@ uint16_t* Dng_processor::get_aces(uint8_t* buffer, size_t buffersize)
 	_imp->libraw->imgdata.params.user_qual = _interpolation_mode + 1;
 	_imp->libraw->imgdata.params.use_camera_matrix = 1;
 	_imp->libraw->imgdata.params.use_camera_wb = 1;
-	_imp->libraw->imgdata.params.user_mul[0] = _imp->libraw->imgdata.color.cam_mul[0];
-	_imp->libraw->imgdata.params.user_mul[1] = _imp->libraw->imgdata.color.cam_mul[1];
-	_imp->libraw->imgdata.params.user_mul[2] = _imp->libraw->imgdata.color.cam_mul[2];
-	_imp->libraw->imgdata.params.user_mul[3] = _imp->libraw->imgdata.color.cam_mul[3];
+	// _imp->libraw->imgdata.params.user_mul[0] = _imp->libraw->imgdata.color.cam_mul[0];
+	// _imp->libraw->imgdata.params.user_mul[1] = _imp->libraw->imgdata.color.cam_mul[1];
+	// _imp->libraw->imgdata.params.user_mul[2] = _imp->libraw->imgdata.color.cam_mul[2];
+	// _imp->libraw->imgdata.params.user_mul[3] = _imp->libraw->imgdata.color.cam_mul[3];
 	_imp->libraw->imgdata.params.use_rawspeed = 1;
 	_imp->libraw->imgdata.params.no_interpolation= _interpolation_mode == 0;
 	_imp->libraw->imgdata.params.highlight = _highlight_mode;
-
 
 	int err;
 	err = _imp->libraw->dcraw_process();

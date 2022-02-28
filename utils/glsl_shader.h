@@ -40,8 +40,8 @@ namespace render
 
 		int getUniformLocation(std::string param);
 
-		void DispatchCompute(int x, int y, int z);
-		void EnableMemoryBarrier();
+		void dispatchCompute(int x = 1, int y = 1, int z = 1);
+		void enableMemoryBarrier();
 	};
 }
 

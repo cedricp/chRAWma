@@ -30,6 +30,7 @@ class Widget
 	bool _is_resizable = true;
 	bool _titlebar = true;
 	bool _modal = false;
+	bool _scrollbar = false;
 	std::vector<ChildWidget*> _childrens;
 protected:
 	std::string _name;
@@ -45,6 +46,9 @@ public:
 	void draw_widget();
 	virtual void draw();
 
+	int width(), height();
+	ImVec2 size();
+
 	void set_maximized(bool m){_maximized = m;}
 	void set_position(int x, int y){_posx = x; _posy = y;}
 	void set_size(int x, int y){_sizex= x; _sizey = y;}
@@ -52,6 +56,7 @@ public:
 	void set_movable(bool m){_is_movable= m;}
 	void set_titlebar(bool t){_titlebar= t;}
 	void set_modal(bool m){_modal = m;}
+	void set_scrollbar(bool sb){_scrollbar = sb;}
 	friend class Window_SDL;
 };
 

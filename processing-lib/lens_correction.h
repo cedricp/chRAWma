@@ -15,7 +15,7 @@ class Lens_correction
 public:
 	Lens_correction(const std::string camera, const std::string lens, const int width, 
 					const int height, float crop_factor, float aperture, float focus_distance, float focus_length,
-					float sensor_ratio,
+					float sensor_ratio, float scale,
 					bool do_expo, bool do_distort);
 	~Lens_correction();
 

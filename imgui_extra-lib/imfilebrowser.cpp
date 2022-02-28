@@ -484,6 +484,7 @@ namespace imgui_addons
         }
         ImGui::PopStyleColor(1);
 
+        selected_seq.clear();
         //Output files
         for (std::vector<const Info*>::size_type i = 0; i < filtered_files.size(); i++)
         {
@@ -511,6 +512,7 @@ namespace imgui_addons
                             selected_is_sequence = true;
                             selected_seq_min = filtered_files[i]->min_seq;
                             selected_seq_max = filtered_files[i]->max_seq;
+                            selected_seq.push_back(filtered_files[i]->name);
                         } else {
                             selected_is_sequence = false;
                             selected_seq_min = 0;
@@ -692,6 +694,18 @@ namespace imgui_addons
                 else if(strlen(input_fn) > 0)
                 {
                     selected_fn = std::string(input_fn);
+                    selected_fn = filtered_files[selected_idx]->name;
+                    if (filtered_files[selected_idx]->is_sequence){
+                        selected_seq_min = filtered_files[selected_idx]->min_seq;
+                        selected_seq_max = filtered_files[selected_idx]->max_seq;
+                        selected_is_sequence = true;
+                        selected_seq = filtered_files[selected_idx]->seq_files;
+                    } else {
+                        selected_seq_min = 0;
+                        selected_seq_max = 0;
+                        selected_is_sequence = false;
+                        selected_seq.clear();
+                    }
                     validate_file = true;
                 }
             }
@@ -1065,6 +1079,8 @@ namespace imgui_addons
             size_t fs = current.find_last_of("_")+1;
             std::string frame = current.substr(fs, 6);
             if(sscanf(frame.c_str(), "%i", &framenum) < 1){
+                seq_filter.push_back(current_info);
+                current_info->is_sequence = false;
                 continue;
             }
             current.replace(fs, 6, "$$$$$$");

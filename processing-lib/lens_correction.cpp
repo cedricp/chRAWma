@@ -59,7 +59,7 @@ struct Lens_correction::lens_corr_impl {
 
 Lens_correction::Lens_correction(const std::string camera, const std::string lens,
 								 const int width, const int height, float crop_factor,
-								 float aperture, float focus_distance, float focus_length, float sensor_ratio, bool do_expo, bool do_distort) : _width(width), _height(height),
+								 float aperture, float focus_distance, float focus_length, float sensor_ratio, float scale, bool do_expo, bool do_distort) : _width(width), _height(height),
 								 _aperture(aperture), _focus_distance(focus_distance), _do_expo(do_expo), _do_distort(do_distort)
 {
 	_imp = new lens_corr_impl;
@@ -106,6 +106,9 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 	if (do_distort){
 		mod->EnableDistortionCorrection();
 	}
+	if (scale != 1.0f){
+		mod->EnableScaling(scale);
+	}
 	if (do_expo){
 		mod->ApplyColorModification(_expo_table, 0.0, _starty, width, height, LF_CR_1(INTENSITY), width*sizeof(float));
 	}
@@ -148,13 +151,14 @@ void Lens_correction::apply_correction(Texture2D& tex)
 	glUniform1i(_imp->shader_distort.getUniformLocation("do_expo"), _do_expo);
 	glUniform1i(_imp->shader_distort.getUniformLocation("do_uv"), _do_distort);
 	glUniform1i(_imp->shader_distort.getUniformLocation("starty"), _starty);
-	glBindImageTexture(0, _imp->out_tex.gl_texture(), 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA16F);
-	glBindImageTexture(1, _imp->uv_tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_RG16F);
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, tex.gl_texture());
-	glBindImageTexture(3, _imp->expo_tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16F);
-	glDispatchCompute((_width + 15) / 16, (_height + 15) / 16, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	_imp->out_tex.bindImageTexture(0), GL_WRITE_ONLY;
+	_imp->uv_tex.bindImageTexture(1, GL_READ_ONLY);
+	tex.bindTexture(2);
+	_imp->expo_tex.bindImageTexture(3, GL_READ_ONLY);
+
+	_imp->shader_distort.dispatchCompute((_width + 15) / 16, (_height + 15) / 16);
+	_imp->shader_distort.enableMemoryBarrier();
+
 	_imp->shader_distort.unbind();
 
 	tex.swap(_imp->out_tex);

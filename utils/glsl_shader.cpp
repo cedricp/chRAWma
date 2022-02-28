@@ -115,12 +115,12 @@ std::string Shader::loadShader(const std::string& fileName)
 	return output;
 }
 
-void Shader::DispatchCompute(int x, int y, int z)
+void Shader::dispatchCompute(int x, int y, int z)
 {
 	glDispatchCompute(x, y, z);
 }
 
-void Shader::EnableMemoryBarrier()
+void Shader::enableMemoryBarrier()
 {
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 }

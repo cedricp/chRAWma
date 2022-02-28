@@ -13,6 +13,11 @@ class Lens_correction;
 class Video_base
 {
 public:
+    enum Raw_type {
+        RAW_MLV,
+        RAW_DNG,
+        RAW_EXR
+    };
     struct RawInfo {
         bool raw_tweak = true;
         bool fix_focuspixels = true;
@@ -23,6 +28,10 @@ public:
         int highlight = 3;
         float crop_factor = 1.0f;
         float focal_length = 35.0f;
+        std::string darkframe_file;
+        bool darkframe_enable = true;
+        bool darkframe_ok = false;
+        std::string darkframe_error;
     };
 private:
     float _idt[9];
@@ -33,7 +42,6 @@ private:
     Scale_processor _scale_processor;
     Blur_processor _blur_processor;
     waveformMonitor* _waveform_monitor;
-    GLuint _wf_tex;
     std::vector<uint16_t*> _raw_buffers;
 protected:
     virtual uint16_t* raw_buffer(uint32_t frame, float idt[9], const RawInfo& ri) = 0;
@@ -41,6 +49,7 @@ protected:
     RawInfo _rawinfo;
 public:
     float _blur = 1.0f;
+    float _blur_hv = 0.5f;
     Video_base();
     virtual ~Video_base();
 
@@ -52,6 +61,9 @@ public:
     uint32_t resolution_x();
 	uint32_t resolution_y();
 
+    void set_display(std::string display);
+
+    virtual Raw_type file_type() = 0;
 	virtual GLenum gl_pixel_type() = 0;
 	virtual GLenum gl_pixel_format() = 0;
     virtual std::string camera_name() = 0;
@@ -75,11 +87,10 @@ public:
     virtual int bpp() = 0;
     virtual void sensor_resolulion(int& x, int& y) = 0;
 
-    void set_lens_params(const std::string camera, const std::string lens, float crop_factor, float aperture, float focus_distance, float focus_length, bool do_expo, bool do_distort);
+    void set_lens_params(const std::string camera, const std::string lens, float crop_factor, float aperture,
+                        float focus_distance, float focus_length, float scale, bool do_expo, bool do_distort);
     void enable_distortion_correction(bool e);
     void enable_exposition_correction(bool e);
-
-    GLuint get_waveform_texture(){return _wf_tex;}
 
     float* get_idt(){return _idt;}
 

@@ -8,8 +8,6 @@ Video_base::Video_base()
 
     _input_processor = new OCIO_processor("ACES - ACES2065-1", "ACES - ACEScg");
     _output_processor = new OCIO_processor("ACEScg", "Output - sRGB");
-    _waveform_monitor = new waveformMonitor(512, 256);
-    _wf_tex = 0;
 }
 
 Video_base::~Video_base()
@@ -20,8 +18,14 @@ Video_base::~Video_base()
     }
     delete _input_processor;
     delete _output_processor;
-    delete _waveform_monitor;
     clear_cache();
+}
+
+void Video_base::set_display(std::string named_display)
+{
+    delete _output_processor;
+    _output_processor = new OCIO_processor("ACEScg", OCIO_processor::display_to_colorspace(named_display));
+    set_dirty();
 }
 
 void Video_base::clear_cache()
@@ -68,16 +72,14 @@ void Video_base::get_frame_as_gl_texture(uint32_t frame, Texture2D& texture)
     }
     
     TextureRGBA16F blur_texture(GL_RGB, GL_UNSIGNED_SHORT, resolution_x(), resolution_y());
-    _blur_processor.process(texture, blur_texture, _blur);
+    _blur_processor.process(texture, blur_texture, _blur, _blur_hv);
     texture.swap(blur_texture);
 
     _input_processor->process(texture, idt);
     _output_processor->process(texture);
-
-    _wf_tex = _waveform_monitor->compute(texture).gl_texture();
 }
 
-void Video_base::set_lens_params(const std::string camera, const std::string lens, float crop_factor, float aperture, float focus_distance, float focus_length, bool do_expo, bool do_distort)
+void Video_base::set_lens_params(const std::string camera, const std::string lens, float crop_factor, float aperture, float focus_distance, float focus_length, float scale, bool do_expo, bool do_distort)
 {
     if (_lens_op){
         delete _lens_op;
@@ -93,7 +95,7 @@ void Video_base::set_lens_params(const std::string camera, const std::string len
     float sensor_ratio = (float)x / float(y);
     _lens_op = new Lens_correction(camera, lens, resolution_x(), resolution_y(),
                                    crop_factor, aperture, focus_distance, focus_length,
-                                   sensor_ratio, do_expo, do_distort);
+                                   sensor_ratio, scale, do_expo, do_distort);
     if(!_lens_op->valid()){
         delete _lens_op;
         _lens_op = NULL;

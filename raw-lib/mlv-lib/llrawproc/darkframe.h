@@ -28,11 +28,11 @@ extern int openMlvClip(mlvObject_t * video, char * mlvPath, int open_mode, char 
 /* from dng.c */
 extern void dng_unpack_image_bits(uint16_t * input_buffer, uint16_t * output_buffer, int width, int height, uint32_t bpp);
 
-void df_init_filename(mlvObject_t * video, char * df_filename);
+void df_init_filename(mlvObject_t * video, const char * df_filename);
 void df_free_filename(mlvObject_t * video);
 
 enum { DF_OFF, DF_EXT, DF_INT };
-int df_validate(mlvObject_t * video, char * df_filename, char * error_message);
+int df_validate(mlvObject_t * video, const char * df_filename, char * error_message);
 int df_init(mlvObject_t * video);
 void df_free(mlvObject_t * video);
 

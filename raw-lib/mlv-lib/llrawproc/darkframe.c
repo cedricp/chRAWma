@@ -207,7 +207,7 @@ static int df_load_int(mlvObject_t * video)
 }
 
 /* copy filename of external dark frame MLV to llrawproc structure */
-void df_init_filename(mlvObject_t * video, char * df_filename)
+void df_init_filename(mlvObject_t * video, const char * df_filename)
 {
     size_t df_filename_size = strlen(df_filename);
     video->llrawproc->dark_frame_filename = calloc(df_filename_size + 1, 1);
@@ -250,7 +250,7 @@ void df_subtract(mlvObject_t * video, uint16_t * raw_image_buff, size_t raw_imag
 }
 
 /* validate external dark frame file */
-int df_validate(mlvObject_t * video, char * df_filename, char * error_message)
+int df_validate(mlvObject_t * video, const char * df_filename, char * error_message)
 {
     df_init_filename(video, df_filename);
     int ret = df_load_ext(video, error_message);

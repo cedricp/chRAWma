@@ -1279,7 +1279,7 @@ int openMlvClip(mlvObject_t * video, const char * mlvPath, int open_mode, char *
     video->file = load_all_chunks(mlvPath, &video->filenum);
     if(!video->file)
     {
-        sprintf(error_message, "Could not open file:  %s", video->path);
+        sprintf(error_message, "openMlvClip : Could not open file:  %s", video->path);
         DEBUG( printf("\n%s\n", error_message); )
         return MLV_ERR_OPEN; // can not open file
     }

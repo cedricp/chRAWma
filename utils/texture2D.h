@@ -29,6 +29,17 @@ public:
 	int width() const;
 	int height() const;
 
+	void bindImageTexture(GLuint unit = 0, GLenum access = GL_READ_WRITE,GLint level = 0, GLboolean layered = GL_FALSE, GLint layer = 0) const
+	{
+		glBindImageTexture(unit, _texid, level, layered, layer, access, _internal_format);
+	}
+
+	void bindTexture(GLuint unit) const
+	{
+		glActiveTexture(GL_TEXTURE0 + unit);
+		glBindTexture(GL_TEXTURE_2D, _texid);
+	}
+
 	void clear(GLenum format = GL_RGB, GLenum type = GL_FLOAT, void* pixels = NULL);
 	void swap(Texture2D& s);
 	void* to_cpu_ram(GLint format, GLenum type);

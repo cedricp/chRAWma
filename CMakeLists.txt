@@ -34,9 +34,9 @@ ADD_SUBDIRECTORY(scope-lib)
 ADD_SUBDIRECTORY(processing-lib)
 ADD_SUBDIRECTORY(utils)
 
-SET(EXT_LIBS usb-1.0 GL GLEW pthread ${SDL2_LIBRARIES} ${LibRaw_LIBRARIES} ${OPENCOLORIO_LIBRARIES} ${LensFun_LIBRARIES} )
+SET(EXT_LIBS GL GLEW pthread ${SDL2_LIBRARIES} ${LibRaw_LIBRARIES} ${OPENCOLORIO_LIBRARIES} ${LensFun_LIBRARIES} )
 
 ADD_EXECUTABLE(chrawma.bin main.cpp)
-TARGET_LINK_LIBRARIES(chrawma.bin imgui_extra_static imgui_static scopes_static utils_static rawlib_static processing_static mlvlib_static ${EXT_LIBS})
+TARGET_LINK_LIBRARIES(chrawma.bin imgui_extra_static imgui_static rawlib_static processing_static mlvlib_static scopes_static utils_static ${EXT_LIBS})
 
 INSTALL(TARGETS chrawma.bin RUNTIME DESTINATION bin)

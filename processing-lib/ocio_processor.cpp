@@ -21,7 +21,7 @@ const char* compute_aces_shader = "#version 440\n"
 "\n";
 
 struct ocio_impl{
-	render::Shader _program;
+	render::Shader _shader;
 	unsigned int _lut_texture;
 };
 
@@ -60,7 +60,13 @@ OCIO_processor::OCIO_processor(std::string colorspace_in, std::string colorspace
 	shader += "\n";
 	shader += text;
 
-	_imp->_program.init_from_string(shader);
+	_imp->_shader.init_from_string(shader);
+}
+
+std::string OCIO_processor::display_to_colorspace(std::string displayname)
+{
+	ConstConfigRcPtr config = GetCurrentConfig();
+	return config->getDisplayColorSpaceName("ACES", displayname.c_str());
 }
 
 OCIO_processor::~OCIO_processor()
@@ -72,9 +78,9 @@ std::vector<std::string> OCIO_processor::get_displays()
 {
 	std::vector<std::string> displays;
 	ConstConfigRcPtr config = GetCurrentConfig();
-	int num_displays = config->getNumDisplays();
+	int num_displays = config->getNumViews("ACES");
 	for (int i=0; i < num_displays; ++i){
-		displays.push_back(config->getDisplay(i));
+		displays.push_back(config->getView("ACES", i));
 	}
 	return displays;
 }
@@ -88,13 +94,16 @@ void OCIO_processor::process(const Texture2D& tex, float* pre_color_matrix)
 	int tw = (tex.width() + 15) / 16;
 	int th = (tex.height() + 15) / 16;
 	
-	GLuint loc = _imp->_program.getUniformLocation("color_mat");
-	_imp->_program.bind();
+	GLuint loc = _imp->_shader.getUniformLocation("color_mat");
+	_imp->_shader.bind();
 	glUniformMatrix3fv(loc, 1, false, pre_color_matrix ? pre_color_matrix : vals);
-	glBindImageTexture(0, tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
+	tex.bindImageTexture();
+
 	glActiveTexture(GL_TEXTURE1);
 	glBindTexture(GL_TEXTURE_3D,_imp-> _lut_texture);
-	glDispatchCompute(tw, th, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-	_imp->_program.unbind();
+	
+	_imp->_shader.dispatchCompute(tw, th);
+	_imp->_shader.enableMemoryBarrier();
+	
+	_imp->_shader.unbind();
 }

@@ -12,5 +12,5 @@ public:
 	Blur_processor();
 	~Blur_processor();
 
-	void process(const Texture2D& in_tex, Texture2D& out_tex, float raduis);
+	void process(const Texture2D& in_tex, Texture2D& out_tex, float raduis, float hv_ratio);
 };

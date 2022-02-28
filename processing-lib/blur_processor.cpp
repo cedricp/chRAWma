@@ -4,7 +4,7 @@
 #include "glsl_shader.h"
 
 struct blur_impl{
-	render::Shader _program;
+	render::Shader _shader;
     GLint _radius_uniform;
 };
 
@@ -50,8 +50,8 @@ Blur_processor::Blur_processor()
 {
     _imp = new blur_impl;
     std::string shader = compute_blur_shader;
-    _imp->_program.init_from_string(shader);
-    _imp->_radius_uniform = _imp->_program.getUniformLocation("radius");
+    _imp->_shader.init_from_string(shader);
+    _imp->_radius_uniform = _imp->_shader.getUniformLocation("radius");
 }
 
 Blur_processor::~Blur_processor()
@@ -59,16 +59,19 @@ Blur_processor::~Blur_processor()
     delete _imp;
 }
 
-void Blur_processor::process(const Texture2D& in_tex, Texture2D& out_tex, float blur_size)
+void Blur_processor::process(const Texture2D& in_tex, Texture2D& out_tex, float blur_size, float hv_ratio)
 {
+	float blur_size_x = blur_size *  (1.0f - ((hv_ratio > 0.5 ? 0.5f : 1.f - hv_ratio) - 0.5f) * 2.0f);
+	float blur_size_y = blur_size *  (1.0f - ((hv_ratio < 0.5 ? 0.5f : hv_ratio) -0.5f) * 2.0f);
+	blur_size_x = blur_size_x < 1.0f ? 1.0f : blur_size_x;
+	blur_size_y = blur_size_y < 1.0f ? 1.0f : blur_size_y;
 	int tw = (out_tex.width() + 15) / 16;
 	int th = (out_tex.height() + 15) / 16;
-	_imp->_program.bind();
-	glBindImageTexture(0, out_tex.gl_texture(), 0, GL_FALSE, 0, GL_READ_WRITE, GL_RGBA16F);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, in_tex.gl_texture());
-    glUniform2f(_imp->_radius_uniform, blur_size, 1.0f);
-	glDispatchCompute(tw, th, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-	_imp->_program.unbind();
+	_imp->_shader.bind();
+	out_tex.bindImageTexture(0, GL_READ_WRITE);
+	in_tex.bindTexture(1);
+    glUniform2f(_imp->_radius_uniform, blur_size_x, blur_size_y);
+	_imp->_shader.dispatchCompute(tw, th);
+	_imp->_shader.enableMemoryBarrier();
+	_imp->_shader.unbind();
 }

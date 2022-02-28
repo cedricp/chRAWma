@@ -47,9 +47,7 @@ Dng_video::Dng_video(std::string filename)
     fs::path path(filename);
     fs::path dir(path.parent_path());
     for (auto & filepath : fs::directory_iterator(dir)){
-        printf("%s\n", filepath.path().extension().string().c_str());
         if (filepath.path().extension() == ".dng"){
-            printf("%s\n", filepath.path().string().c_str());
             _imp->filenames.push_back(filepath.path().string());
         }
     }

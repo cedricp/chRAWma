@@ -16,4 +16,5 @@ public:
 	void process(const Texture2D& tex, float* pre_color_matrix = 0L);
 
 	static std::vector<std::string> get_displays();
+	static std::string display_to_colorspace(std::string displayname);
 };

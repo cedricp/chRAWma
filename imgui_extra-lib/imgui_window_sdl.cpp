@@ -68,7 +68,7 @@ const void* userParam )
 	if(type == GL_DEBUG_TYPE_ERROR)
 
 	{
-		__asm__("int3");
+		//__asm__("int3");
 	}
 }
 
@@ -342,6 +342,26 @@ Widget::draw()
 
 }
 
+int
+Widget::width()
+{
+	ImVec2 winsize = ImGui::GetContentRegionAvail();
+	return winsize.x;
+}
+
+int
+Widget::height()
+{
+	ImVec2 winsize = ImGui::GetContentRegionAvail();
+	return winsize.y;
+}
+
+ImVec2
+Widget::size()
+{
+	return ImGui::GetContentRegionAvail();
+}
+
 void Widget::draw_widget()
 {
 	if (_managed){
@@ -360,6 +380,9 @@ void Widget::draw_widget()
 			}
 			if (_modal){
 				flags |= ImGuiWindowFlags_Modal;
+			}
+			if (!_scrollbar){
+				flags |= ImGuiWindowFlags_NoScrollbar;
 			}
 		} else if(_underlying_window) {
 			int w,h;

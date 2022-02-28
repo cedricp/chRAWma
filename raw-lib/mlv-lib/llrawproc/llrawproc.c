@@ -585,7 +585,7 @@ void llrpResetBpmStatus(mlvObject_t * video)
 }
 
 /* dark frame stuff */
-void llrpInitDarkFrameExtFileName(mlvObject_t * video, char * df_filename)
+void llrpInitDarkFrameExtFileName(mlvObject_t * video, const char * df_filename)
 {
     df_free_filename(video);
     df_init_filename(video, df_filename);
@@ -618,7 +618,7 @@ int llrpGetDarkFrameIntStatus(mlvObject_t * video)
     return 0;
 }
 
-int llrpValidateExtDarkFrame(mlvObject_t * video, char * df_filename, char * error_message)
+int llrpValidateExtDarkFrame(mlvObject_t * video, const char * df_filename, char * error_message)
 {
     return df_validate(video, df_filename, error_message);
 }
