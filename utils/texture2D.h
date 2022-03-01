@@ -24,7 +24,7 @@ public:
 	GLuint gl_texture() const {return _texid;}
 
 	virtual void init(GLenum format, GLenum type, GLsizei width, GLsizei height,  const void *pixels = NULL, GLint border = 0,
-			 GLint wrap_s = GL_CLAMP_TO_EDGE, GLint wrap_t = GL_CLAMP_TO_EDGE, GLint min_filter = GL_LINEAR, GLint max_filter = GL_LINEAR){
+			 GLint wrap_s = GL_CLAMP_TO_BORDER, GLint wrap_t = GL_CLAMP_TO_BORDER, GLint min_filter = GL_LINEAR, GLint max_filter = GL_LINEAR){
 			 }
 	int width() const;
 	int height() const;
@@ -55,7 +55,7 @@ class Texture_ : public Texture2D
 public:
 	// ---------------------------------------------
 	Texture_(GLenum format, GLenum type, GLsizei width, GLsizei height,  const void *pixels = NULL, GLint border = 0,
-			 GLint wrap_s = GL_CLAMP_TO_EDGE, GLint wrap_t = GL_CLAMP_TO_EDGE, GLint min_filter = GL_LINEAR, GLint max_filter = GL_LINEAR) : Texture2D(0, iformat, width, height,
+			 GLint wrap_s = GL_CLAMP_TO_BORDER, GLint wrap_t = GL_CLAMP_TO_BORDER, GLint min_filter = GL_LINEAR, GLint max_filter = GL_LINEAR) : Texture2D(0, iformat, width, height,
 			 border, format, type, wrap_s, wrap_t, min_filter, max_filter, pixels)
 	{
 
@@ -64,7 +64,7 @@ public:
 	Texture_() : Texture2D(){}
 
 	void init(GLenum format, GLenum type, GLsizei width, GLsizei height,  const void *pixels = NULL, GLint border = 0,
-			 GLint wrap_s = GL_CLAMP_TO_EDGE, GLint wrap_t = GL_CLAMP_TO_EDGE, GLint min_filter = GL_LINEAR, GLint max_filter = GL_LINEAR) override
+			 GLint wrap_s = GL_CLAMP_TO_BORDER, GLint wrap_t = GL_CLAMP_TO_BORDER, GLint min_filter = GL_LINEAR, GLint max_filter = GL_LINEAR) override
 	{
 		Texture2D::_init(0, iformat, width, height, border, format, type, wrap_s, wrap_t, min_filter, max_filter, pixels);
 	}	

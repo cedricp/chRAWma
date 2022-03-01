@@ -147,8 +147,8 @@ const Texture2D& waveformMonitor::compute(const Texture2D& tex)
 	glUniform1i(_wf_parade_loc, _wf_parade);
 	_intermediate_texture.bindImageTexture(0, GL_READ_WRITE);
 	tex.bindImageTexture(1, GL_READ_ONLY);
-	glDispatchCompute(_inw / 64, _inh / 4, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	_compute_shader.dispatchCompute(_inw / 64, _inh / 4);
+	_compute_shader.enableMemoryBarrier();
 	_compute_shader.unbind();
 
 	_compute_shader_mix.bind();
@@ -156,8 +156,8 @@ const Texture2D& waveformMonitor::compute(const Texture2D& tex)
 	_output_texture.bindImageTexture(1, GL_WRITE_ONLY);
 	glUniform1f(_mix_spot_loc, _wf_spot_intensity);
 	glUniform1f(_mix_scale_loc, _wf_scale);
-	glDispatchCompute(_width / 16, _height / 16, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	_compute_shader_mix.dispatchCompute(_width / 16, _height / 16);
+	_compute_shader_mix.enableMemoryBarrier();
 	_compute_shader_mix.unbind();
 
 	return _output_texture;

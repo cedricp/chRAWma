@@ -51,11 +51,11 @@ public:
 
    void draw() override {
       if (_video_tex == NULL) return;
-      ImGui::SetNextItemWidth(150);
-      if(ImGui::SliderFloat("Intensity", &_intensity, 0.1f, 4.0f)) _vsmonitor->set_intensity(_intensity);
+      ImGui::SetNextItemWidth(80);
+      if(ImGui::SliderFloat("Intensity", &_intensity, 0.01f, 4.0f)) _vsmonitor->set_intensity(_intensity);
       ImGui::SameLine();
-      ImGui::SetNextItemWidth(150);
-      if(ImGui::SliderFloat("Scale", &_scale, 0.0625f, 1.0f)) _vsmonitor->set_scale(_scale);
+      ImGui::SetNextItemWidth(80);
+      if(ImGui::SliderFloat("Scale", &_scale, 0.001f, 1.0f)) _vsmonitor->set_scale(_scale);
       GLuint tex = _vsmonitor->compute(*_video_tex).gl_texture();
       ImGui::Image((void*)(unsigned long)tex, size());
    }
@@ -111,13 +111,15 @@ class VideoWidget : public Widget
 	imgui_addons::ImGuiFileBrowser _fbw;
    std::vector<std::string> _displays;
    int _selected_display = 0;
+
+   float _zoomfactor = 1.0;
+   ImVec2 _pan;
 public:
-	//Mlv_video* _video;
    Video_base* _video;
 	VideoWidget(Window_SDL* win) : Widget(win, "TestWidget"), _video(NULL), _scope(NULL), _vscope(NULL)
 	{
-
-      _video = new Mlv_video("/storage/VIDEO/MISC/MLV/M04-1713.MLV");
+      _pan = ImVec2(0,0);
+      _video = new Mlv_video("/storage1/videos/MISC/MLV/M13-1134.MLV");
       //_video = new Dng_video("/storage/VIDEO/MISC/RAW/VIDEO_DNG/M02-1705_1_2021-05-02_0001_C0000/M02-1705_1_2021-05-02_0001_C0000_000000.dng");
 		set_position(50, 50);
 		set_size(500,500);
@@ -208,15 +210,59 @@ public:
          _video->set_dirty();
       }
 
+      float texwidth = _tex->width();
+      float texheight = _tex->height();
+
+      ImVec2 uv1(1,1); 
+      ImVec2 imgPos = ImGui::GetCursorPos();
+		float ratio = texheight / texwidth;
+      ImVec2 imgsize(winsize.x,int((float)winsize.x*ratio));
+
+      ImVec2 mousepos = ImGui::GetMousePos() - imgPos;
+      ImVec2 uvpos = mousepos / imgsize;
+      if (uvpos.x > 0.0f && uvpos.x < 1.0f && uvpos.y > 0.0f && uvpos.y < 1.0f){
+
+         // Reset xforms
+         if (ImGui::GetIO().MouseDoubleClicked[0]){
+            _pan = ImVec2(0,0);
+            _zoomfactor = 1.0f;
+         }
+
+         if (ImGui::GetIO().MouseDown[0]){
+            ImVec2 mousedelta = ImGui::GetIO().MouseDelta;
+            mousedelta.x /= winsize.x / _zoomfactor;
+            mousedelta.y /= winsize.x * ratio / _zoomfactor;
+            _pan -= mousedelta;
+         }
+
+         float mw = ImGui::GetIO().MouseWheel;
+         float z = 1.0f;
+
+         if (mw < 0.0f && _zoomfactor < 20.f){
+            z = 1.2;
+         }
+         if(mw > 0.0f && _zoomfactor > 0.05f){
+            z = 0.83f;
+         }
+         
+         if (mw != 0.0f){
+            ImVec2 pandiff = (uvpos - _pan) * z;
+            _pan = uvpos - pandiff;
+         }
+         _zoomfactor *= z;
+      }
+
+      uv1 *= _zoomfactor;
+      uv1 += _pan;
+
       if (_video->need_refresh()){
          reload();
          if (_scope) _scope->update_texture(_tex);
          if (_vscope) _vscope->update_texture(_tex);
       }
 
-		float ratio = (float)_tex->height() / (float)_tex->width();
 
-		ImGui::Image((void*)(unsigned long)_tex->gl_texture(), ImVec2(winsize.x,int((float)winsize.x*ratio)));
+		ImGui::Image((void*)(unsigned long)_tex->gl_texture(), imgsize, _pan, uv1);
       ImGui::SetNextItemWidth(winsize.x);
       if(ImGui::SliderInt("##frame", &_cf, 0, _video->frame_count() - 1, NULL)){
          _video->set_dirty();
@@ -655,7 +701,7 @@ int main(int, char**)
    ImGui::GetStyle().GrabRounding = 4.0;
    ImGui::GetStyle().GrabMinSize = 4.0; 
 	window->set_minimum_window_size(800,600);
-	ImFont* font = app->load_font("/home/cedric/Documents/FONTS/DroidSans.ttf", 16.f);
+	ImFont* font = app->load_font("/storage1/documents/FONTS/DroidSans.ttf", 16.f);
    app->add_window(window);
 	app->run();
    return 0;

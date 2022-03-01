@@ -10,8 +10,10 @@ vec4 RGB_BT709_2_YUV(vec4 rgb)\n\
 {\n\
 	vec4 yuv;\n\
     yuv.x = 0.2126f * rgb.x + 0.7152f * rgb.y + 0.0722f * rgb.z;\n\
-    yuv.y = (rgb.z - yuv.x) * (1.f/ 1.8556);\n\
-    yuv.z = (rgb.x - yuv.x) * (1.f / 1.5748);\n\
+    yuv.y = -0.09991f * rgb.x - 0.33609f * rgb.y + 0.436f * rgb.z;;\n\
+    yuv.z = 0.615f * rgb.x - 0.55851f * rgb.y - 0.05639f * rgb.z;;\n\
+//    yuv.y = (rgb.z - yuv.x) * (1./ 1.8556);\n\
+//    yuv.z = (rgb.x - yuv.x) * (1. / 1.5748);\n\
     return yuv;\n\
 }\n\
 \n\
@@ -19,8 +21,8 @@ vec4 RGB_BT601_2_YUV(vec4 rgb)\n\
 {\n\
 	vec4 yuv;\n\
     yuv.x = 0.299 * rgb.x + 0.587 * rgb.y + 0.114 * rgb.z;\n\
-    yuv.y = (rgb.z - yuv.x) * (1.f/ 1.772);\n\
-    yuv.z = (rgb.x - yuv.x) * (1.f / 1.402);\n\
+    yuv.y = (rgb.z - yuv.x) * (1./ 1.772);\n\
+    yuv.z = (rgb.x - yuv.x) * (1. / 1.402);\n\
     return yuv;\n\
 }\n\
 \n\
@@ -28,8 +30,8 @@ vec4 RGB_BT2020_2_YUV(vec4 rgb)\n\
 {\n\
 	vec4 yuv;\n\
     yuv.x = 0.2627f * rgb.x + 0.6780 * rgb.y + 0.0593 * rgb.z;\n\
-    yuv.y = (rgb.z - yuv.x) * (1.f / 1.8814);\n\
-    yuv.z = (rgb.x - yuv.x) * (1.f / 1.4747);\n\
+    yuv.y = (rgb.z - yuv.x) * (1. / 1.8814);\n\
+    yuv.z = (rgb.x - yuv.x) * (1. / 1.4747);\n\
     return yuv;\n\
 }\n\
 \n\
@@ -58,10 +60,10 @@ void main() \n\
 	ivec2 loadPos = ivec2(gl_GlobalInvocationID.xy);\n\
 	\n\
 	vec4 col = imageLoad(sourceTex, loadPos);\n\
-	vec4 yuv = RGB_BT709_2_YUV(col);\n\
+	vec4 yuv = RGB_BT709_2_YUV(col) * 2.0;\n\
 	\n\
-	yuv.y *= 255.0f / (122.0f * 2.0f);\n\
-    yuv.z *= 255.0f / (157.0f * 2.0f);\n\
+	//yuv.y *= 255.0f / (122.0f * 2.0f);\n\
+    //yuv.z *= 255.0f / (157.0f * 2.0f);\n\
     \n\
     int dest_x = int((yuv.y + 0.5f) * float(scopesize.x));\n\
     int dest_y = int((-yuv.z + 0.5f) * float(scopesize.y));\n\
@@ -132,9 +134,7 @@ void main()\n\
 		}\n\
 	}\n\
 	\n\
-	finalColor.xyz += float(col.x) / 1023.0;\n\
-	\n\
-	finalColor *= spot_intensity;\n\
+	finalColor.xyz += float(col.x) / (1024.0 / spot_intensity);\n\
 	\n\
 	finalColor.x = pow(finalColor.x, 0.4545f);\n\
 	finalColor.y = pow(finalColor.y, 0.4545f);\n\
@@ -173,8 +173,8 @@ const Texture2D& vectorMonitor::compute(const Texture2D& tex)
 	_compute_shader.bind();
     _intermediate_texture.bindImageTexture(0, GL_READ_WRITE);
     tex.bindImageTexture(1, GL_READ_ONLY);
-	glDispatchCompute(_inw / 64, _inh / 4, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	_compute_shader.dispatchCompute(_inw / 8, _inh / 8);
+	_compute_shader.enableMemoryBarrier();
 	_compute_shader.unbind();
 
 	_compute_shader_mix.bind();
@@ -183,8 +183,8 @@ const Texture2D& vectorMonitor::compute(const Texture2D& tex)
 	glUniform1f(_mix_spot_loc, _spot_intensity);
 	glUniform1f(_mix_scale_loc, _scale);
     glUniform1i(_mix_colorwheel_loc, 1);
-	glDispatchCompute(_width / 16, _height / 16, 1);
-	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+	_compute_shader.dispatchCompute(_width / 16, _height / 16);
+	_compute_shader.enableMemoryBarrier();
 	_compute_shader_mix.unbind();
 
 	return _output_texture;
