@@ -25,56 +25,25 @@ using namespace Imf_2_3;
 using namespace Imath_2_3;
 using namespace Iex_2_3;
 
-class VectorscopeWidget : public Widget
-{
-   vectorMonitor* _vsmonitor;
-   TextureRGBA16F* _video_tex;
-   bool _parade = true;
-   float _intensity = 1, _scale = 1;
-public:
-	VectorscopeWidget(Window_SDL* win) : Widget(win, "VScopeWidget")
-	{
-      _video_tex = NULL;
-      _vsmonitor = new vectorMonitor(256,256);
-      set_movable(false);
-		set_titlebar(false);
-      set_resizable(false);
-   }
-
-   ~VectorscopeWidget(){
-      delete _vsmonitor;
-	}
-
-   void update_texture(TextureRGBA16F* v){
-      _video_tex = v;
-   }
-
-   void draw() override {
-      if (_video_tex == NULL) return;
-      ImGui::SetNextItemWidth(80);
-      if(ImGui::SliderFloat("Intensity", &_intensity, 0.01f, 4.0f)) _vsmonitor->set_intensity(_intensity);
-      ImGui::SameLine();
-      ImGui::SetNextItemWidth(80);
-      if(ImGui::SliderFloat("Scale", &_scale, 0.001f, 1.0f)) _vsmonitor->set_scale(_scale);
-      GLuint tex = _vsmonitor->compute(*_video_tex).gl_texture();
-      ImGui::Image((void*)(unsigned long)tex, size());
-   }
-};
-
 class ScopeWidget : public Widget
 {
    waveformMonitor* _wfmonitor;
+   vectorMonitor* _vsmonitor;
+
    TextureRGBA16F* _video_tex;
    bool _parade = true;
    float _intensity = 1, _scale = 1;
 public:
+   int width;
 	ScopeWidget(Window_SDL* win) : Widget(win, "ScopeWidget")
 	{
       _video_tex = NULL;
       _wfmonitor = new waveformMonitor(512,256);
+      _vsmonitor = new vectorMonitor(256,256);
       set_movable(false);
 		set_titlebar(false);
       set_resizable(false);
+      width=600;
    }
 
    ~ScopeWidget(){
@@ -86,16 +55,36 @@ public:
    }
 
    void draw() override {
-      if (_video_tex == NULL) return;
-      if(ImGui::Checkbox("Parade", &_parade)) _wfmonitor->set_parade(_parade);
-      ImGui::SameLine();
-      ImGui::SetNextItemWidth(150);
-      if(ImGui::SliderFloat("Intensity", &_intensity, 0.1f, 4.0f)) _wfmonitor->set_intensity(_intensity);
-      ImGui::SameLine();
-      ImGui::SetNextItemWidth(150);
-      if(ImGui::SliderFloat("Scale", &_scale, 0.0625f, 1.0f)) _wfmonitor->set_scale(_scale);
-      GLuint tex = _wfmonitor->compute(*_video_tex).gl_texture();
-      ImGui::Image((void*)(unsigned long)tex, size());
+      if (ImGui::BeginTabBar("ScopeTabBar", ImGuiTabBarFlags_None))
+      {
+         if (ImGui::BeginTabItem("Waveform")){
+            width = 600;
+            if (_video_tex == NULL) return;
+            if(ImGui::Checkbox("Parade", &_parade)) _wfmonitor->set_parade(_parade);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(150);
+            if(ImGui::SliderFloat("Intensity", &_intensity, 0.1f, 4.0f)) _wfmonitor->set_intensity(_intensity);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(150);
+            if(ImGui::SliderFloat("Scale", &_scale, 0.0625f, 1.0f)) _wfmonitor->set_scale(_scale);
+            GLuint tex = _wfmonitor->compute(*_video_tex).gl_texture();
+            ImGui::Image((void*)(unsigned long)tex, size());
+            ImGui::EndTabItem();
+         }
+         if (ImGui::BeginTabItem("Vector")){
+            width = 300;
+            if (_video_tex == NULL) return;
+            ImGui::SetNextItemWidth(80);
+            if(ImGui::SliderFloat("Intensity", &_intensity, 0.01f, 4.0f)) _vsmonitor->set_intensity(_intensity);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(80);
+            if(ImGui::SliderFloat("Scale", &_scale, 0.001f, 1.0f)) _vsmonitor->set_scale(_scale);
+            GLuint tex = _vsmonitor->compute(*_video_tex).gl_texture();
+            ImGui::Image((void*)(unsigned long)tex, ImVec2(size().y, size().y));
+            ImGui::EndTabItem();
+         }
+      }
+      ImGui::EndTabBar();
    }
 };
 
@@ -103,8 +92,6 @@ class VideoWidget : public Widget
 {
 	TextureRGBA16F* _tex;
    ScopeWidget* _scope;
-   VectorscopeWidget* _vscope;
-
 	int _cf=0;
 	float _idt_mat[9];
 	Lens_correction *_lc;
@@ -113,20 +100,20 @@ class VideoWidget : public Widget
    int _selected_display = 0;
 
    float _zoomfactor = 1.0;
-   ImVec2 _pan;
+   ImVec2 _pos0;
 public:
    Video_base* _video;
-	VideoWidget(Window_SDL* win) : Widget(win, "TestWidget"), _video(NULL), _scope(NULL), _vscope(NULL)
+	VideoWidget(Window_SDL* win) : Widget(win, "TestWidget"), _video(NULL), _scope(NULL)
 	{
-      _pan = ImVec2(0,0);
-      _video = new Mlv_video("/storage1/videos/MISC/MLV/M13-1134.MLV");
+      _pos0 = ImVec2(0,0);
+      _video = new Mlv_video("/storage/VIDEO/MISC/MLV/M04-1713.MLV");
       //_video = new Dng_video("/storage/VIDEO/MISC/RAW/VIDEO_DNG/M02-1705_1_2021-05-02_0001_C0000/M02-1705_1_2021-05-02_0001_C0000_000000.dng");
 		set_position(50, 50);
 		set_size(500,500);
 		set_resizable(false);
       set_movable(false);
 		set_titlebar(false);
-      set_scrollbar(false);
+      //set_scrollbar(false);
 		uint32_t size;
 		int w = _video->raw_resolution_x();
 		int h = _video->raw_resolution_y();
@@ -142,11 +129,9 @@ public:
       return _tex;
    }
 
-   void set_scope(ScopeWidget* scope, VectorscopeWidget* vscope){
+   void set_scope(ScopeWidget* scope){
       _scope = scope;
-      _vscope = vscope;
       _scope->update_texture(_tex);
-      _vscope->update_texture(_tex);
    }
 
    void reload(){
@@ -187,6 +172,9 @@ public:
 
 	void draw() override {
       ImVec2 winsize = size();
+
+      ImDrawList* draw_list = ImGui::GetWindowDrawList(); 
+
 		bool open = ImGui::Button("Test", ImVec2(100,20));
       ImGui::SameLine();
       if (ImGui::Combo("Display", &_selected_display, vector_getter, static_cast<void*>(&_displays), _displays.size())){
@@ -198,11 +186,9 @@ public:
 		if(_fbw.showFileDialogPopup("Open File", imgui_addons::ImGuiFileBrowser::DialogMode::OPEN, ImVec2(600, 300), ".mlv,.dng")){
          _cf = 0;
          if (_scope) _scope->update_texture(NULL);
-         if (_vscope) _vscope->update_texture(NULL);
          delete _video;
          delete _tex;
          _video = new Mlv_video(_fbw.selected_path);
-         //_video = new Dng_video(_fbw.selected_path);
          
          int w = _video->raw_resolution_x();
 		   int h = _video->raw_resolution_y();
@@ -213,58 +199,59 @@ public:
       float texwidth = _tex->width();
       float texheight = _tex->height();
 
-      ImVec2 uv1(1,1); 
       ImVec2 imgPos = ImGui::GetCursorPos();
 		float ratio = texheight / texwidth;
       ImVec2 imgsize(winsize.x,int((float)winsize.x*ratio));
 
       ImVec2 mousepos = ImGui::GetMousePos() - imgPos;
-      ImVec2 uvpos = mousepos / imgsize;
-      if (uvpos.x > 0.0f && uvpos.x < 1.0f && uvpos.y > 0.0f && uvpos.y < 1.0f){
+      ImVec2 uv_mouse_pos = mousepos / imgsize;
+      if (uv_mouse_pos.x > 0.0f && uv_mouse_pos.x < 1.0f &&
+          uv_mouse_pos.y > 0.0f && uv_mouse_pos.y < 1.0f &&
+          !ImGui::IsPopupOpen("Display", ImGuiPopupFlags_None)){
 
          // Reset xforms
          if (ImGui::GetIO().MouseDoubleClicked[0]){
-            _pan = ImVec2(0,0);
+            _pos0 = ImVec2(0,0);
             _zoomfactor = 1.0f;
          }
 
          if (ImGui::GetIO().MouseDown[0]){
             ImVec2 mousedelta = ImGui::GetIO().MouseDelta;
-            mousedelta.x /= winsize.x / _zoomfactor;
-            mousedelta.y /= winsize.x * ratio / _zoomfactor;
-            _pan -= mousedelta;
+            _pos0 += mousedelta;
          }
 
          float mw = ImGui::GetIO().MouseWheel;
-         float z = 1.0f;
+         if(mw != 0.0f){
+            float z = 1.0f;
 
-         if (mw < 0.0f && _zoomfactor < 20.f){
-            z = 1.2;
+            if (mw < 0.0f && _zoomfactor < 10.f){
+               z = 1.2;
+            }
+            else if(mw > 0.0f && _zoomfactor > 0.5f){
+               z = 0.8f;
+            }
+            ImVec2 delta = (mousepos - _pos0)  * (z - 1.0f);
+            _pos0 -= delta;
+            _zoomfactor *= z;
          }
-         if(mw > 0.0f && _zoomfactor > 0.05f){
-            z = 0.83f;
-         }
-         
-         if (mw != 0.0f){
-            ImVec2 pandiff = (uvpos - _pan) * z;
-            _pan = uvpos - pandiff;
-         }
-         _zoomfactor *= z;
       }
-
-      uv1 *= _zoomfactor;
-      uv1 += _pan;
 
       if (_video->need_refresh()){
          reload();
          if (_scope) _scope->update_texture(_tex);
-         if (_vscope) _vscope->update_texture(_tex);
       }
 
+      const ImVec2 p = ImGui::GetCursorScreenPos(); 
+      ImRect clip_rect(p.x, p.y, p.x + imgsize.x, p.y + imgsize.y);
+      ImGui::PushClipRect(clip_rect.Min, clip_rect.Max, true);
+      
+      draw_list->AddImage((void*)(unsigned long)_tex->gl_texture(), p + _pos0, p + _pos0 + imgsize*_zoomfactor);
 
-		ImGui::Image((void*)(unsigned long)_tex->gl_texture(), imgsize, _pan, uv1);
+      ImGui::Dummy(imgsize); 
+      ImGui::PopClipRect();
+      
       ImGui::SetNextItemWidth(winsize.x);
-      if(ImGui::SliderInt("##frame", &_cf, 0, _video->frame_count() - 1, NULL)){
+      if(ImGui::SliderInt("##frameSlider", &_cf, 0, _video->frame_count() - 1, NULL)){
          _video->set_dirty();
       }
 	}
@@ -638,7 +625,6 @@ public:
 class MainWindow : public Window_SDL
 {
    ScopeWidget* _scopewid;
-   VectorscopeWidget* _vsmonitor;
 	VideoWidget* _videowid;
    RawInfoWidget* _rawinfo;
    public:
@@ -648,8 +634,7 @@ class MainWindow : public Window_SDL
          _videowid = new VideoWidget(this);
          _rawinfo = new RawInfoWidget(this, _videowid);
          _scopewid = new ScopeWidget(this);
-         _vsmonitor = new VectorscopeWidget(this);
-         _videowid->set_scope(_scopewid, _vsmonitor);
+         _videowid->set_scope(_scopewid);
      }
 
       virtual ~MainWindow(){
@@ -661,7 +646,7 @@ class MainWindow : public Window_SDL
          get_window_size(w,h);
 
          const int scopeh = 300;
-         const int scopew = 600;
+         const int scopew = _scopewid->width;
 
          const int infow = 400;
 
@@ -675,9 +660,6 @@ class MainWindow : public Window_SDL
 
          _scopewid->set_position(0, videoh);
          _scopewid->set_size(scopew, scopeh);
-
-         _vsmonitor->set_position(scopew, videoh);
-         _vsmonitor->set_size(scopeh, scopeh);
 
          _rawinfo->set_position(videow, 0);
          _rawinfo->set_size(infow, videoh);
@@ -701,7 +683,7 @@ int main(int, char**)
    ImGui::GetStyle().GrabRounding = 4.0;
    ImGui::GetStyle().GrabMinSize = 4.0; 
 	window->set_minimum_window_size(800,600);
-	ImFont* font = app->load_font("/storage1/documents/FONTS/DroidSans.ttf", 16.f);
+	ImFont* font = app->load_font("/home/cedric/Documents/FONTS/DroidSans.ttf", 16.f);
    app->add_window(window);
 	app->run();
    return 0;
