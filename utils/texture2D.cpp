@@ -27,6 +27,20 @@ void Texture2D::update_buffer(GLint xoffset, GLint yoffset, GLsizei width, GLsiz
 	}
 }
 
+void* Texture2D::get_subdata_float_rgb(
+ 	GLint xoffset, GLint yoffset, GLint zoffset,
+ 	GLsizei width,GLsizei height,
+ 	GLint level, GLsizei depth)
+{
+	GLsizei bufSize = width * height * sizeof(float) * 3;
+	void *pixels;
+	pixels = (void*)malloc(bufSize);
+	glGetTextureSubImage(_texid, level,
+ 	xoffset, yoffset, zoffset,
+ 	width, height, depth, GL_RGB, GL_FLOAT, bufSize, pixels);
+	return pixels;
+}
+
 void Texture2D::_init(GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type,
 					 GLint wrap_s, GLint wrap_t, GLint min_filter, GLint max_filter,const void *pixels)
 {

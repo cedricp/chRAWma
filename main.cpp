@@ -11,6 +11,7 @@
 
 #include "scope-lib/waveform_monitor.h"
 #include "scope-lib/vector_monitor.h"
+#include "scope-lib/histogram_monitor.h"
 #include "processing-lib/lens_correction.h"
 #include "raw-lib/mlv_video.h"
 #include "raw-lib/dng_video.h"
@@ -29,6 +30,7 @@ class ScopeWidget : public Widget
 {
    waveformMonitor* _wfmonitor;
    vectorMonitor* _vsmonitor;
+   histogramMonitor* _hmonitor;
 
    TextureRGBA16F* _video_tex;
    bool _parade = true;
@@ -40,6 +42,7 @@ public:
       _video_tex = NULL;
       _wfmonitor = new waveformMonitor(512,256);
       _vsmonitor = new vectorMonitor(256,256);
+      _hmonitor = new histogramMonitor(512,256);
       set_movable(false);
 		set_titlebar(false);
       set_resizable(false);
@@ -54,9 +57,23 @@ public:
       _video_tex = v;
    }
 
+   ImVec4 rgb2yuv(const ImVec4& rgb){
+      ImVec4 yuv;
+      yuv.x = 0.2126f * rgb.x + 0.7152f * rgb.y + 0.0722f * rgb.z;
+      yuv.y = (rgb.z - yuv.x) * (1./ 1.8556);
+      yuv.z = (rgb.x - yuv.x) * (1. / 1.5748);
+	   //yuv.y *= 255.0f / (122.0f * 2.0f);
+      //yuv.z *= 255.0f / (157.0f * 2.0f);      
+      return yuv;
+   }
+
    void draw() override {
+      ImDrawList* draw_list = ImGui::GetWindowDrawList();
       if (ImGui::BeginTabBar("ScopeTabBar", ImGuiTabBarFlags_None))
       {
+         const ImVec4 red_yuv = rgb2yuv(ImVec4(0.75,0.,0.,0));
+         const ImVec4 green_yuv = rgb2yuv(ImVec4(0,0.75,0,0));
+         const ImVec4 blue_yuv = rgb2yuv(ImVec4(0,0,0.75,0));
          if (ImGui::BeginTabItem("Waveform")){
             width = 600;
             if (_video_tex == NULL) return;
@@ -80,7 +97,30 @@ public:
             ImGui::SetNextItemWidth(80);
             if(ImGui::SliderFloat("Scale", &_scale, 0.001f, 1.0f)) _vsmonitor->set_scale(_scale);
             GLuint tex = _vsmonitor->compute(*_video_tex).gl_texture();
-            ImGui::Image((void*)(unsigned long)tex, ImVec2(size().y, size().y));
+            ImVec2 scopepos = ImGui::GetCursorScreenPos();
+            scopepos.x = (size().x - size().y) * 0.15f;
+            ImVec2 red_pos((red_yuv.y + 0.5f) * size().y, (-red_yuv.z + 0.5f) * size().y);
+            red_pos += scopepos;
+            ImVec2 green_pos((green_yuv.y + 0.5f) * size().y, (-green_yuv.z + 0.5f) * size().y);
+            green_pos += scopepos;
+            ImVec2 blue_pos((blue_yuv.y + 0.5f) * size().y, (-blue_yuv.z + 0.5f) * size().y);
+            blue_pos += scopepos;
+            draw_list->AddImage((void*)(unsigned long)tex, scopepos, scopepos + ImVec2(size().y, size().y));
+            draw_list->AddRect(red_pos - ImVec2(4,4), red_pos + ImVec2(4,4), IM_COL32_WHITE);
+            draw_list->AddRect(green_pos - ImVec2(4,4), green_pos + ImVec2(4,4), IM_COL32_WHITE);
+            draw_list->AddRect(blue_pos - ImVec2(4,4), blue_pos + ImVec2(4,4), IM_COL32_WHITE);
+            ImGui::EndTabItem();
+         }
+         if (ImGui::BeginTabItem("Histogram")){
+            width = 600;
+            if (_video_tex == NULL) return;
+            ImGui::SetNextItemWidth(80);
+            if(ImGui::SliderFloat("Intensity", &_intensity, 0.01f, 4.0f)) _vsmonitor->set_intensity(_intensity);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(80);
+            if(ImGui::SliderFloat("Scale", &_scale, 0.001f, 1.0f)) _vsmonitor->set_scale(_scale);
+            GLuint tex = _hmonitor->compute(*_video_tex).gl_texture();
+            ImGui::Image((void*)(unsigned long)tex, size());
             ImGui::EndTabItem();
          }
       }
@@ -91,6 +131,7 @@ public:
 class VideoWidget : public Widget
 {
 	TextureRGBA16F* _tex;
+   TextureRGB16F* _subtex;
    ScopeWidget* _scope;
 	int _cf=0;
 	float _idt_mat[9];
@@ -121,7 +162,7 @@ public:
       _displays = OCIO_processor::get_displays();
 
 		_tex = new TextureRGBA16F(GL_RGB, GL_UNSIGNED_SHORT, w, h, NULL);
-
+      _subtex = new TextureRGB16F(GL_RGB, GL_FLOAT, 16,16,NULL);
       reload();
 	}
 
@@ -175,8 +216,9 @@ public:
 
       ImDrawList* draw_list = ImGui::GetWindowDrawList(); 
 
-		bool open = ImGui::Button("Test", ImVec2(100,20));
+		bool open = ImGui::Button("Open video", ImVec2(100,20));
       ImGui::SameLine();
+      ImGui::SetNextItemWidth(150);
       if (ImGui::Combo("Display", &_selected_display, vector_getter, static_cast<void*>(&_displays), _displays.size())){
          _video->set_display(_displays[_selected_display]);
       }
@@ -199,15 +241,17 @@ public:
       float texwidth = _tex->width();
       float texheight = _tex->height();
 
-      ImVec2 imgPos = ImGui::GetCursorPos();
+      ImVec2 texsize(texwidth, texheight);
+
+      ImVec2 cursorpos = ImGui::GetCursorPos();
 		float ratio = texheight / texwidth;
       ImVec2 imgsize(winsize.x,int((float)winsize.x*ratio));
-
-      ImVec2 mousepos = ImGui::GetMousePos() - imgPos;
+      ImVec2 mousepos = ImGui::GetMousePos() - cursorpos;
       ImVec2 uv_mouse_pos = mousepos / imgsize;
+
       if (uv_mouse_pos.x > 0.0f && uv_mouse_pos.x < 1.0f &&
           uv_mouse_pos.y > 0.0f && uv_mouse_pos.y < 1.0f &&
-          !ImGui::IsPopupOpen("Display", ImGuiPopupFlags_None)){
+         !ImGui::IsPopupOpen("Display", ImGuiPopupFlags_None)){
 
          // Reset xforms
          if (ImGui::GetIO().MouseDoubleClicked[0]){
@@ -242,10 +286,22 @@ public:
       }
 
       const ImVec2 p = ImGui::GetCursorScreenPos(); 
+      ImVec2 imgpos(p + _pos0);
+      ImVec2 pickpos = ImGui::GetMousePos() - imgpos;
+      pickpos *= texsize / imgsize / _zoomfactor;
+
+
       ImRect clip_rect(p.x, p.y, p.x + imgsize.x, p.y + imgsize.y);
       ImGui::PushClipRect(clip_rect.Min, clip_rect.Max, true);
       
-      draw_list->AddImage((void*)(unsigned long)_tex->gl_texture(), p + _pos0, p + _pos0 + imgsize*_zoomfactor);
+      draw_list->AddImage((void*)(unsigned long)_tex->gl_texture(), imgpos, p + _pos0 + imgsize *_zoomfactor);
+      draw_list->AddRect(p+_pos0 - ImVec2(1,1), p + _pos0 + imgsize *_zoomfactor + ImVec2(1,1), IM_COL32_WHITE);
+      if (pickpos.x > 0 && pickpos.x < texwidth - 16 && pickpos.y > 0 && pickpos.y < texheight - 16 && ImGui::GetIO().KeyShift){
+         void *texdata = _tex->get_subdata_float_rgb(pickpos.x, pickpos.y, 0, 16, 16);
+         _subtex->init(GL_RGB, GL_FLOAT, 16, 16, texdata);
+         free(texdata);
+         draw_list->AddImage((void*)(unsigned long)_subtex->gl_texture(), ImGui::GetMousePos() , ImGui::GetMousePos() + ImVec2(128,128));
+      }
 
       ImGui::Dummy(imgsize); 
       ImGui::PopClipRect();
@@ -275,8 +331,6 @@ public:
       set_movable(false);
       set_scrollbar(false);
       set_titlebar(false);
-      ChildWidget* test = new ChildWidget(this, "Test1", false, 50,0);
-      ChildWidget* test2 = new ChildWidget(this, "Test2", true);
       auto_set_lens();
    }
 
@@ -554,7 +608,7 @@ public:
                }
 
                ImGui::TableNextColumn();ImGui::Text("Crop factor");
-               ImGui::TableNextColumn();lens_changed |= ImGui::SliderFloat("##cropfactor", &_video->_video->raw_settings().crop_factor, 1.0f, 20.0f, NULL);
+               ImGui::TableNextColumn();lens_changed |= ImGui::SliderFloat("##cropfactor", &_video->_video->raw_settings().crop_factor, 1.0f, 10.0f, NULL);
 
                ImGui::TableNextColumn();ImGui::Text("Scale");
                ImGui::TableNextColumn();lens_changed |= ImGui::SliderFloat("##lenscale", &lens_scale, 0.5f, 2.0f, NULL);
@@ -568,7 +622,9 @@ public:
             ImGui::EndTabItem();
 
             if (lens_changed || lens_expo_changed || lens_distort_changed){
-               _video->_video->set_lens_params(get_selected_camera(), get_selected_lens(), _video->_video->raw_settings().crop_factor,  _video->_video->aperture(), _video->_video->focal_dist(), _video->_video->raw_settings().focal_length, lens_scale, correct_expo, correct_distort);
+               _video->_video->set_lens_params(get_selected_camera(), get_selected_lens(), _video->_video->raw_settings().crop_factor,
+                                               _video->_video->aperture(), _video->_video->focal_dist(),
+                                               _video->_video->raw_settings().focal_length, lens_scale, correct_expo, correct_distort);
             }
          }
 

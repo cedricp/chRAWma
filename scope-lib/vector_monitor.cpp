@@ -10,10 +10,8 @@ vec4 RGB_BT709_2_YUV(vec4 rgb)\n\
 {\n\
 	vec4 yuv;\n\
     yuv.x = 0.2126f * rgb.x + 0.7152f * rgb.y + 0.0722f * rgb.z;\n\
-    yuv.y = -0.09991f * rgb.x - 0.33609f * rgb.y + 0.436f * rgb.z;;\n\
-    yuv.z = 0.615f * rgb.x - 0.55851f * rgb.y - 0.05639f * rgb.z;;\n\
-//    yuv.y = (rgb.z - yuv.x) * (1./ 1.8556);\n\
-//    yuv.z = (rgb.x - yuv.x) * (1. / 1.5748);\n\
+    yuv.y = -0.09991f * rgb.x - 0.33609f * rgb.y + 0.436f * rgb.z;\n\
+    yuv.z = 0.615f * rgb.x - 0.55861f * rgb.y - 0.05639f * rgb.z;\n\
     return yuv;\n\
 }\n\
 \n\
@@ -60,10 +58,10 @@ void main() \n\
 	ivec2 loadPos = ivec2(gl_GlobalInvocationID.xy);\n\
 	\n\
 	vec4 col = imageLoad(sourceTex, loadPos);\n\
-	vec4 yuv = RGB_BT709_2_YUV(col) * 2.0;\n\
+	vec4 yuv = RGB_BT709_2_YUV(col);\n\
 	\n\
-	//yuv.y *= 255.0f / (122.0f * 2.0f);\n\
-    //yuv.z *= 255.0f / (157.0f * 2.0f);\n\
+	yuv.y *= 255.0f / (122.0f * 2.0f);\n\
+    yuv.z *= 255.0f / (157.0f * 2.0f);\n\
     \n\
     int dest_x = int((yuv.y + 0.5f) * float(scopesize.x));\n\
     int dest_y = int((-yuv.z + 0.5f) * float(scopesize.y));\n\
@@ -89,9 +87,9 @@ uniform int color_wheel;\n\
 vec4 YUV2RGB(vec4 yuv)\n\
 {\n\
 	vec4 rgb;\n\
-    rgb.x = yuv.x + 1.28033f * yuv.z;\n\
-    rgb.y = yuv.x + -0.21482f * yuv.y - 0.8059f * yuv.z;\n\
-    rgb.z = yuv.x + 2.12798f * yuv.y;;\n\
+    rgb.x = yuv.x + 1.28033 * yuv.z;\n\
+    rgb.y = yuv.x -0.21482 * yuv.y - 0.38059 * yuv.z;\n\
+    rgb.z = yuv.x + 2.12798 * yuv.y;\n\
     return rgb;\n\
 }\n\
 \n\
@@ -102,7 +100,7 @@ void main()\n\
 	ivec2 storePos = ivec2(gl_GlobalInvocationID.xy);\n\
 	uvec4 col = imageLoad(source, storePos);\n\
 	\n\
-	vec4 finalColor =vec4(0.,0.,0.,1.);\n\
+	vec4 finalColor = vec4(0.,0.,0.,0.);\n\
 	\n\
 	if (color_wheel > 0){\n\
 		vec2 v = vec2(center) - vec2(storePos);\n\
@@ -117,28 +115,29 @@ void main()\n\
 					finalColor.z += 0.01;\n\
 				}\n\
 			}\n\
-			\n\
 			float u = v.x / float(size.x);\n\
 			float v = v.y / float(size.y);\n\
-			float y = lenv / float(center.y) * 0.75;\n\
-			vec4 rgb = YUV2RGB(vec4(1.-y, -u, v, 0.0));\n\
-			finalColor.x += rgb.x * 0.1;\n\
-			finalColor.y += rgb.y * 0.1;\n\
-			finalColor.z += rgb.z * 0.1;\n\
+			float y = 1. - (lenv / float(center.y));\n\
+			vec4 rgb = YUV2RGB(vec4(y, -u, v, 1.0));\n\
+			finalColor.x += rgb.x * 0.8;\n\
+			finalColor.y += rgb.y * 0.8;\n\
+			finalColor.z += rgb.z * 0.8;\n\
+			finalColor.w = 1.0;\n\
 		}\n\
 	} else {\n\
 		if (size.y - storePos.y == int(float(size.y) * 0.5f * scale_y)){\n\
 			finalColor.x += 0.1f;\n\
 			finalColor.y += 0.1f;\n\
 			finalColor.z += 0.1f;\n\
+			finalColor.w = 1.0;\n\
 		}\n\
 	}\n\
 	\n\
-	finalColor.xyz += float(col.x) / (1024.0 / spot_intensity);\n\
+	//finalColor.x = pow(finalColor.x, 0.4545f);\n\
+	//finalColor.y = pow(finalColor.y, 0.4545f);\n\
+	//finalColor.z = pow(finalColor.z, 0.4545f);\n\
 	\n\
-	finalColor.x = pow(finalColor.x, 0.4545f);\n\
-	finalColor.y = pow(finalColor.y, 0.4545f);\n\
-	finalColor.z = pow(finalColor.z, 0.4545f);\n\
+	finalColor.xyz *= 1 - float(col.x) / (1024.0 / spot_intensity);\n\
 	\n\
 	imageStore(dest, storePos, finalColor);\n\
 }";

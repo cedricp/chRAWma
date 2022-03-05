@@ -90,11 +90,13 @@ void main()\n \
 		finalColor.x += 0.1f;\n \
 		finalColor.y += 0.1f;\n \
 		finalColor.z += 0.1f;\n \
+		finalColor.w = 1.;\n\
 	}\n \
 	if (size.y - storePos.y == int(float(size.y) * scale_y)){\n \
 		finalColor.x += 0.1f;\n \
 		finalColor.y += 0.0f;\n \
 		finalColor.z += 0.1f;\n \
+		finalColor.w = 1.;\n\
 	}\n \
 	\n \
 	finalColor.x += float(colr.x) / 4096.0;\n \

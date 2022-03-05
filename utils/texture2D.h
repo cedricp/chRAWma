@@ -22,6 +22,7 @@ public:
 
 	void update_buffer(GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLint format, GLenum type, void* pixels);
 	GLuint gl_texture() const {return _texid;}
+	void* get_subdata_float_rgb(GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width,GLsizei height, GLint level = 0, GLsizei depth = 1);
 
 	virtual void init(GLenum format, GLenum type, GLsizei width, GLsizei height,  const void *pixels = NULL, GLint border = 0,
 			 GLint wrap_s = GL_CLAMP_TO_BORDER, GLint wrap_t = GL_CLAMP_TO_BORDER, GLint min_filter = GL_LINEAR, GLint max_filter = GL_LINEAR){
@@ -72,6 +73,7 @@ public:
 
 typedef Texture_<GL_RGBA16F> TextureRGBA16F;
 typedef Texture_<GL_RGB16F> TextureRGB16F;
+typedef Texture_<GL_RGB32F> TextureRGB32F;
 typedef Texture_<GL_RG16F> TextureRG16F;
 typedef Texture_<GL_R16F> TextureR16F;
 typedef Texture_<GL_R32UI> TextureR32UI;

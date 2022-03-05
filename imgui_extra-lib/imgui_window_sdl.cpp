@@ -670,7 +670,7 @@ void App_SDL::run()
         		if (window->do_event(&event)){
         			window->draw();
         		}
-        		event_raised = 2;
+        		event_raised = 3;
         	}
 
             // Events handler
@@ -694,7 +694,7 @@ void App_SDL::run()
 				window->draw();
 			}
         }
-        usleep(5000);
+        usleep(1000);
     }
 	end:;
 }

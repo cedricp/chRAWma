@@ -8,9 +8,7 @@ const char* compute_distort_shader = "#version 440\n"
 "layout (binding=0, rgba16f) uniform writeonly image2D output_buffer;\n"
 "layout (binding=1, rg16f) uniform readonly image2D distort_buffer;\n"
 "layout (binding=2) uniform sampler2D input_buffer;\n"
-"layout (binding=3, r16f) uniform readonly image2D expo_correction;\n"
 "layout (local_size_x = 16, local_size_y = 16) in;\n"
-"uniform bool do_expo;\n"
 "uniform bool do_uv;\n"
 "uniform int starty;"
 "void main(){\n"
@@ -20,19 +18,18 @@ const char* compute_distort_shader = "#version 440\n"
 "if (do_uv){uv = imageLoad(distort_buffer, loadPos);uv.y -= starty;}\n"
 "else uv = vec4(float(loadPos.x), float(loadPos.y), 0.,0.);\n"
 "vec4 color = texture(input_buffer, uv.xy / sz);\n"
-"if (do_expo){color *= imageLoad(expo_correction, loadPos).x;}\n"
 "imageStore(output_buffer, loadPos, color);\n"
 "}\n"
 "\n";
 
-const char* compute_copy_shader = "#version 440\n"
-"layout (binding=0, rgba16f) uniform writeonly image2D output_buffer;\n"
-"layout (binding=1, rgba16f) uniform readonly image2D input_buffer;\n"
+const char* compute_expo_shader = "#version 440\n"
+"layout (binding=0, r16f) uniform readonly image2D expo_buffer;\n"
+"layout (binding=1, rgba16f) uniform coherent image2D input_buffer;\n"
 "layout (local_size_x = 16, local_size_y = 16) in;\n"
 "void main(){\n"
 "ivec2 loadPos = ivec2(gl_GlobalInvocationID.xy);\n"
-"vec4 color = imageLoad(input_buffer, loadPos);\n"
-"imageStore(output_buffer, loadPos, color);\n"
+"vec4 color = imageLoad(input_buffer, loadPos) * imageLoad(expo_buffer, loadPos).x;\n"
+"imageStore(input_buffer, loadPos, color);\n"
 "}\n"
 "\n";
 
@@ -51,6 +48,7 @@ static lfdb _lfdb;
 
 struct Lens_correction::lens_corr_impl {
 	render::Shader shader_distort;
+	render::Shader shader_expo;
 	TextureRGBA16F out_tex;
 	TextureRG16F uv_tex;
 	TextureR16F expo_tex;
@@ -59,7 +57,7 @@ struct Lens_correction::lens_corr_impl {
 
 Lens_correction::Lens_correction(const std::string camera, const std::string lens,
 								 const int width, const int height, float crop_factor,
-								 float aperture, float focus_distance, float focus_length, float sensor_ratio, float scale, bool do_expo, bool do_distort) : _width(width), _height(height),
+								 float aperture, float focus_distance, float focal_length, float sensor_ratio, float scale, bool do_expo, bool do_distort) : _width(width), _height(height),
 								 _aperture(aperture), _focus_distance(focus_distance), _do_expo(do_expo), _do_distort(do_distort)
 {
 	_imp = new lens_corr_impl;
@@ -91,7 +89,7 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 		 _expo_table = new float[width*height];
 
 		for (int i = 0; i < width*height; ++i){
-			_expo_table[i] = 1.f;
+			_expo_table[i] = 1.0f;
 		}
 	}
 
@@ -99,7 +97,7 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 
 	float crop = crop_factor != 0 ? crop_factor : lfcam->CropFactor;
 
-	lfModifier *mod = new lfModifier(lflens, focus_length, crop, width, h, LF_PF_F32, false);
+	lfModifier *mod = new lfModifier(lflens, focal_length, crop, width, h, LF_PF_F32, false);
 	if (do_expo){
 		mod->EnableVignettingCorrection(_aperture, _focus_distance);
 	}
@@ -117,8 +115,9 @@ Lens_correction::Lens_correction(const std::string camera, const std::string len
 	}
 
 	std::string shader = compute_distort_shader;
-	std::string shader_copy = compute_copy_shader;
+	std::string shader_expo = compute_expo_shader;
 	_imp->shader_distort.init_from_string(shader);
+	_imp->shader_expo.init_from_string(shader_expo);
 
 	if(do_expo){
 		_imp->expo_tex.init(GL_RED, GL_FLOAT, _width, _height, _expo_table);
@@ -147,15 +146,23 @@ bool Lens_correction::valid()
 
 void Lens_correction::apply_correction(Texture2D& tex)
 {
+	if (_do_expo){
+		_imp->shader_expo.bind();
+		glUniform1i(_imp->shader_distort.getUniformLocation("starty"), _starty);
+		tex.bindImageTexture(1, GL_READ_WRITE);
+		_imp->expo_tex.bindImageTexture(0, GL_READ_ONLY);
+		_imp->shader_expo.dispatchCompute((_width + 15) / 16, (_height + 15) / 16);
+		_imp->shader_expo.enableMemoryBarrier();
+		_imp->shader_expo.unbind();
+	}
+
 	_imp->shader_distort.bind();
-	glUniform1i(_imp->shader_distort.getUniformLocation("do_expo"), _do_expo);
 	glUniform1i(_imp->shader_distort.getUniformLocation("do_uv"), _do_distort);
 	glUniform1i(_imp->shader_distort.getUniformLocation("starty"), _starty);	
 
 	_imp->out_tex.bindImageTexture(0, GL_WRITE_ONLY);
 	if (_do_distort) _imp->uv_tex.bindImageTexture(1, GL_READ_ONLY);
 	tex.bindTexture(2);
-	if (_do_expo) _imp->expo_tex.bindImageTexture(3, GL_READ_ONLY);
 
 	_imp->shader_distort.dispatchCompute((_width + 15) / 16, (_height + 15) / 16);
 	_imp->shader_distort.enableMemoryBarrier();
