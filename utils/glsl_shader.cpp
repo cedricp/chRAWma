@@ -82,6 +82,16 @@ GLint Shader::getUniformLocation(std::string param)
 	return glGetUniformLocation(_program, param.c_str());
 }
 
+void Shader::setUniform1f(std::string param, float val)
+{
+	glUniform1i(getUniformLocation(param), val);
+}
+
+void Shader::setUniform1i(std::string param, int val)
+{
+	glUniform1i(getUniformLocation(param), val);
+}
+
 void Shader::bind()
 {
 	glUseProgram(_program);

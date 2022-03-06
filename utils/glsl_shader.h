@@ -40,6 +40,9 @@ namespace render
 
 		int getUniformLocation(std::string param);
 
+		void setUniform1f(std::string param, float val);
+		void setUniform1i(std::string param, int val);
+
 		void dispatchCompute(int x = 1, int y = 1, int z = 1);
 		void enableMemoryBarrier();
 	};

@@ -148,7 +148,6 @@ void Lens_correction::apply_correction(Texture2D& tex)
 {
 	if (_do_expo){
 		_imp->shader_expo.bind();
-		glUniform1i(_imp->shader_distort.getUniformLocation("starty"), _starty);
 		tex.bindImageTexture(1, GL_READ_WRITE);
 		_imp->expo_tex.bindImageTexture(0, GL_READ_ONLY);
 		_imp->shader_expo.dispatchCompute((_width + 15) / 16, (_height + 15) / 16);
@@ -157,13 +156,12 @@ void Lens_correction::apply_correction(Texture2D& tex)
 	}
 
 	_imp->shader_distort.bind();
-	glUniform1i(_imp->shader_distort.getUniformLocation("do_uv"), _do_distort);
-	glUniform1i(_imp->shader_distort.getUniformLocation("starty"), _starty);	
+	_imp->shader_distort.setUniform1i("do_uv", _do_distort);
+	_imp->shader_distort.setUniform1i("starty", _starty);
 
 	_imp->out_tex.bindImageTexture(0, GL_WRITE_ONLY);
 	if (_do_distort) _imp->uv_tex.bindImageTexture(1, GL_READ_ONLY);
 	tex.bindTexture(2);
-
 	_imp->shader_distort.dispatchCompute((_width + 15) / 16, (_height + 15) / 16);
 	_imp->shader_distort.enableMemoryBarrier();
 

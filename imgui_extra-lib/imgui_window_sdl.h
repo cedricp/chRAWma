@@ -88,7 +88,7 @@ public:
 
 	void show(bool show);
 
-	virtual void draw();
+	virtual void draw(bool compute_only=false);
 	void add_widget(Widget* widget);
 	unsigned int get_windid();
 	bool do_event(void* ev);

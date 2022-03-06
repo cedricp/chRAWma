@@ -229,7 +229,7 @@ Window_SDL::set_imgui_context()
 	ImGui::SetCurrentContext(_impl->_imguicontext);;
 }
 
-void Window_SDL::draw()
+void Window_SDL::draw(bool compute_only)
 {
 	if (!_impl->_is_shown)
 		return;
@@ -256,6 +256,11 @@ void Window_SDL::draw()
 
     // Rendering
     ImGui::Render();
+
+	if (compute_only){
+		return;
+	}
+
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
     glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -668,7 +673,7 @@ void App_SDL::run()
         	bool event_flag = false;
         	for(auto window: _impl->_windows){
         		if (window->do_event(&event)){
-        			window->draw();
+        			window->draw(true);
         		}
         		event_raised = 3;
         	}
@@ -689,12 +694,13 @@ void App_SDL::run()
                 goto end;
             }
         }
+		
         while (event_raised--){
 			for(auto window: _impl->_windows){
-				window->draw();
+				window->draw(event_raised > 0);
 			}
         }
-        usleep(1000);
+        usleep(5000);
     }
 	end:;
 }

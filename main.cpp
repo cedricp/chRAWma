@@ -106,9 +106,9 @@ public:
             ImVec2 blue_pos((blue_yuv.y + 0.5f) * size().y, (-blue_yuv.z + 0.5f) * size().y);
             blue_pos += scopepos;
             draw_list->AddImage((void*)(unsigned long)tex, scopepos, scopepos + ImVec2(size().y, size().y));
-            draw_list->AddRect(red_pos - ImVec2(4,4), red_pos + ImVec2(4,4), IM_COL32_WHITE);
-            draw_list->AddRect(green_pos - ImVec2(4,4), green_pos + ImVec2(4,4), IM_COL32_WHITE);
-            draw_list->AddRect(blue_pos - ImVec2(4,4), blue_pos + ImVec2(4,4), IM_COL32_WHITE);
+            draw_list->AddRect(red_pos - ImVec2(4,4), red_pos + ImVec2(4,4), IM_COL32(255,0,0,255));
+            draw_list->AddRect(green_pos - ImVec2(4,4), green_pos + ImVec2(4,4), IM_COL32(0,255,0,255));
+            draw_list->AddRect(blue_pos - ImVec2(4,4), blue_pos + ImVec2(4,4), IM_COL32(0,0,255,255));
             ImGui::EndTabItem();
          }
          if (ImGui::BeginTabItem("Histogram")){
@@ -697,7 +697,7 @@ class MainWindow : public Window_SDL
 
       }
 
-      void draw() override {
+      void draw(bool c) override {
          int w,h;
          get_window_size(w,h);
 
@@ -720,7 +720,7 @@ class MainWindow : public Window_SDL
          _rawinfo->set_position(videow, 0);
          _rawinfo->set_size(infow, videoh);
 
-         Window_SDL::draw();
+         Window_SDL::draw(c);
      }
 };
 

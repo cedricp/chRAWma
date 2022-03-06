@@ -137,7 +137,7 @@ void main()\n\
 	//finalColor.y = pow(finalColor.y, 0.4545f);\n\
 	//finalColor.z = pow(finalColor.z, 0.4545f);\n\
 	\n\
-	finalColor.xyz *= 1 - float(col.x) / (1024.0 / spot_intensity);\n\
+	finalColor.xyz += float(col.x) / (4096.0 / spot_intensity);\n\
 	\n\
 	imageStore(dest, storePos, finalColor);\n\
 }";
